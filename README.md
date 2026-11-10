@@ -7,7 +7,7 @@ Microfrontend do **Driftor ASC**, entrega 3 de Arquitetura e Soluções Cloud (P
 | | URL |
 |---|---|
 | Aplicação | https://driftor-asc-mfe.vercel.app |
-| API usada (API Management) | https://driftor-asc-apim.azure-api.net |
+| API usada (API Management) | https://driftor-asc-apim.azure-api.net/api |
 
 ## Telas
 
