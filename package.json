@@ -1,0 +1,36 @@
+{
+  "name": "driftor-asc-mfe",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Microfrontend do Driftor ASC: React, consome só o BFF pelo Azure API Management.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run && npm run test:arch",
+    "test:arch": "depcruise src --config .dependency-cruiser.cjs"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "1.1.4",
+    "lucide-react": "0.474.0",
+    "mermaid": "12.1.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-markdown": "10.1.0",
+    "react-router-dom": "7.18.1",
+    "recharts": "2.15.4",
+    "remark-gfm": "4.0.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.3",
+    "dependency-cruiser": "16.10.4",
+    "jsdom": "26.1.0",
+    "typescript": "5.9.2",
+    "vite": "8.1.0",
+    "vitest": "3.2.4"
+  }
+}

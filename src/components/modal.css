@@ -1,0 +1,29 @@
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 100; display: flex; align-items: flex-start; justify-content: center;
+  padding: 64px 16px 32px; background: rgba(10, 15, 22, 0.72); overflow-y: auto;
+}
+.modal {
+  width: 100%; max-width: 460px; background: var(--raised); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 24px 64px rgba(0,0,0,0.45); display: flex; flex-direction: column;
+  max-height: calc(100vh - 96px); animation: rise .18s ease-out;
+}
+.modal-wide { max-width: 900px; }
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+.modal-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+.modal-head p { margin: 4px 0 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.modal-body { padding: 18px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.modal-foot { display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--line); }
+.btn-danger { border-color: var(--line-strong); background: rgba(255,255,255,0.06); color: var(--text); font-weight: 600; }
+.btn-danger:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
+.inline-name {
+  display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 420px; padding: 4px 6px; margin-left: -6px;
+  border: 0; border-radius: 4px; background: transparent; color: var(--text); font-size: var(--fs-md); font-weight: 600;
+}
+.inline-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inline-name svg { color: var(--text-dim); opacity: 0; transition: opacity .15s; flex-shrink: 0; }
+.inline-name:hover { background: rgba(255,255,255,0.05); }
+.inline-name:hover svg, .inline-name:focus-visible svg { opacity: 1; }
+.inline-name-input {
+  min-width: 240px; padding: 4px 6px; margin-left: -6px; border: 0; border-bottom: 1px solid var(--accent);
+  background: transparent; color: var(--text); font-size: var(--fs-md); font-weight: 600; outline: none;
+}

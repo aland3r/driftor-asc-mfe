@@ -1,0 +1,9 @@
+.graph { position: relative; flex: 1; min-width: 0; height: 100%; background: var(--bg); overflow: hidden; }
+.graph-svg { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; }
+.graph-controls { position: absolute; right: 16px; bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.graph-zoom { display: flex; flex-direction: column; border-radius: 8px; overflow: hidden; border: 1px solid var(--line-strong); background: var(--raised); }
+.graph-zoom button, .graph-rotate { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--text-muted); }
+.graph-zoom button + button { border-top: 1px solid var(--line); }
+.graph-zoom button:hover, .graph-rotate:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.graph-rotate { border-radius: 50%; border: 1px solid var(--line-strong); background: var(--raised); }
+.graph-zoom-pct { font-family: var(--mono); font-size: var(--fs-xs); color: var(--text-dim); }
