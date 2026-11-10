@@ -25,10 +25,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   if (res.status === 204) return undefined as T
   const type = res.headers.get('content-type') ?? ''
-  const body = type.includes('json') ? await res.json().catch(() => null) : await res.text()
-  if (res.ok && (body == null || body === '') && init.method && init.method !== 'GET') {
+  const raw = await res.text().catch(() => '')
+  let body: unknown = raw
+  if (type.includes('json')) {
+    try { body = raw ? JSON.parse(raw) : null } catch { body = null }
+  }
+  if (res.ok && (body == null || body === '')) {
     // resposta ok sem corpo legível: melhor dizer isso do que quebrar a tela
-    throw new ApiError('O servidor confirmou a ação, mas não devolveu os dados. Recarregue a página.', res.status)
+    throw new ApiError(`O servidor confirmou a ação, mas não devolveu os dados (HTTP ${res.status}, ${raw.length} bytes, ${type || 'sem tipo'}). Recarregue a página.`, res.status)
   }
   if (!res.ok) {
     const detail = typeof body === 'object' && body ? (body as any).detail ?? (body as any).message : null
