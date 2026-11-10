@@ -71,7 +71,7 @@ export function LandingPage() {
           </section>
         </main>
         <footer className="landing-foot">
-          <p>Alander Menezes Arantes de Ávila · Bernardo Creplive Vieira · Emanuelle Skolut Jose · Murilo Regnier Stange</p>
+          <p>Alander Menezes Arantes de Ávila · Emanuelle Skolut Jose</p>
           <p>Projeto acadêmico, PUCPR, 2026. Dados sintéticos de manufatura.</p>
         </footer>
       </div>

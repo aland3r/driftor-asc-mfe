@@ -61,6 +61,4 @@ A cada push na `main`, o GitHub Actions roda os testes e o build; a Vercel publi
 ## Grupo
 
 - Alander Menezes Arantes de Ávila
-- Bernardo Creplive Vieira
 - Emanuelle Skolut Jose
-- Murilo Regnier Stange
