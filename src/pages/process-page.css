@@ -20,3 +20,10 @@
 .histogram-bars span { flex: 1; background: var(--accent); border-radius: 2px 2px 0 0; }
 @media (max-width: 1100px) { .trace-list { display: none; } }
 @media (max-width: 860px) { .page-body { flex-direction: column; } .side { width: 100%; border-left: 0; border-top: 1px solid var(--line); max-height: 45vh; } .canvas-wrap { min-height: 50vh; } }
+
+.empty-canvas { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px 16px; background-image: radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 24px 24px; }
+.empty-canvas-inner { display: flex; flex-direction: column; align-items: center; gap: 16px; max-width: 420px; text-align: center; }
+.empty-canvas-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border: 1px solid var(--line); color: var(--text-dim); }
+.empty-canvas-title { margin: 0 0 4px; font-size: var(--fs-md); font-weight: 500; color: var(--text); }
+.empty-canvas-text { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.6; }
+.empty-canvas-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }

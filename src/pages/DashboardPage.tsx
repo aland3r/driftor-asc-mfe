@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, MoreHorizontal, Pencil, Plus, ScanLine, Trash2, Upload } from 'lucide-react'
+import { Loader2, MoreHorizontal, Pencil, Plus, ScanLine, Trash2 } from 'lucide-react'
 import { api } from '../api/client'
 import type { AnalysisSummary, Overview, ProcessSummary } from '../api/types'
 import { AppHeader } from '../components/AppHeader'
 import { ConfirmDelete } from '../components/Modal'
 import { NewAnalysisModal } from '../features/analysis/NewAnalysisModal'
-import { UploadLogModal } from '../features/process/UploadLogModal'
+import { NewProcessModal } from '../features/process/NewProcessModal'
 import { number, relative } from '../lib/format'
 import './dashboard.css'
 
@@ -66,14 +66,14 @@ export function DashboardPage() {
         actions={
           <>
             <button type="button" className="btn btn-sm" onClick={() => setModal('analysis')} disabled={!processes.some((p) => p.status === 'pronto')}><ScanLine size={14} />Nova análise</button>
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => setModal('process')}><Upload size={14} />Novo processo</button>
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => setModal('process')}><Plus size={14} />Novo processo</button>
           </>
         }
       />
       <main className="dash">
         <div className="dash-head">
           <h1>Processos e análises</h1>
-          <p>Envie um log para minerar o processo; a partir dele, gere análises de desvio de desempenho.</p>
+          <p>Crie um processo e carregue o log de eventos para minerar o grafo; a partir dele, gere análises de desvio de desempenho.</p>
         </div>
         {unavailable.length > 0 && (
           <p className="dash-warn">Parte dos dados não carregou: {unavailable.map((s) => (s.source === 'pmining' ? 'processos' : s.source === 'ipdd' ? 'análises' : 'Function')).join(', ')} indisponível no momento.</p>
@@ -85,7 +85,7 @@ export function DashboardPage() {
         ) : items.length === 0 ? (
           <div className="dash-empty">
             <p className="dash-empty-title">Nenhum processo ainda</p>
-            <p>Envie um log de eventos .xes ou .csv para ver o grafo do processo.</p>
+            <p>Crie um processo e carregue um log de eventos .xes ou .csv para ver o grafo.</p>
             <button type="button" className="btn btn-primary" onClick={() => setModal('process')}><Plus size={14} />Novo processo</button>
           </div>
         ) : (
@@ -103,7 +103,7 @@ export function DashboardPage() {
         )}
       </main>
 
-      {modal === 'process' && <UploadLogModal onClose={() => { setModal(null); load() }} onDone={(p) => navigate(`/processos/${p.id}`)} />}
+      {modal === 'process' && <NewProcessModal onClose={() => setModal(null)} onCreated={(p) => navigate(`/processos/${p.id}`)} />}
       {modal === 'analysis' && <NewAnalysisModal processes={processes} onClose={() => setModal(null)} onCreated={(a) => navigate(`/analises/${a.id}`)} />}
       {deleting && (
         <ConfirmDelete
@@ -139,7 +139,7 @@ function ProjectCard({ item, onOpen, onRename, onDelete }: { item: Item; onOpen:
   }
 
   const meta = item.kind === 'processo'
-    ? item.data.status === 'pronto' ? `${number(item.data.traceCount)} traces · ${item.data.variantCount} ${item.data.variantCount === 1 ? 'variante' : 'variantes'}` : 'Mapeamento pendente'
+    ? item.data.status === 'pronto' ? `${number(item.data.traceCount)} traces · ${item.data.variantCount} ${item.data.variantCount === 1 ? 'variante' : 'variantes'}` : item.data.status === 'vazio' ? 'Sem log de eventos' : 'Mapeamento pendente'
     : item.data.status === 'em_andamento' ? 'Processando…' : item.data.status === 'falhou' ? 'Falhou' : `${item.data.driftCount} ${item.data.driftCount === 1 ? 'desvio' : 'desvios'} · ${item.data.processName}`
 
   return (

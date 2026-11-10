@@ -32,7 +32,7 @@ export interface ProcessSummary {
   name: string
   fileName: string
   format: string
-  status: 'mapeando' | 'pronto'
+  status: 'vazio' | 'mapeando' | 'pronto'
   createdAt: string
   updatedAt: string
   startedAt: string | null
@@ -59,7 +59,7 @@ export interface Trace {
   activities: string[]
 }
 
-export interface Activity { id: string; name: string }
+export interface Activity { id: string; name: string; description?: string }
 
 export interface Drift {
   position: number

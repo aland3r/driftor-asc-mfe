@@ -26,6 +26,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (res.status === 204) return undefined as T
   const type = res.headers.get('content-type') ?? ''
   const body = type.includes('json') ? await res.json().catch(() => null) : await res.text()
+  if (res.ok && (body == null || body === '') && init.method && init.method !== 'GET') {
+    // resposta ok sem corpo legível: melhor dizer isso do que quebrar a tela
+    throw new ApiError('O servidor confirmou a ação, mas não devolveu os dados. Recarregue a página.', res.status)
+  }
   if (!res.ok) {
     const detail = typeof body === 'object' && body ? (body as any).detail ?? (body as any).message : null
     throw new ApiError(typeof detail === 'string' ? detail : messageFor(res.status), res.status)
@@ -48,13 +52,13 @@ export const api = {
 
   listProcesses: () => request<ProcessSummary[]>('/processes'),
   getProcess: (id: string) => request<Process>(`/processes/${id}`),
-  uploadProcess: (name: string, file: File) => {
+  createProcess: (name: string) => request<Process>('/processes', { method: 'POST', body: JSON.stringify({ name }) }),
+  uploadLog: (id: string, file: File) => {
     const form = new FormData()
-    form.append('name', name)
     form.append('file', file)
-    return request<Process>('/processes', { method: 'POST', body: form })
+    return request<Process>(`/processes/${id}/log`, { method: 'POST', body: form })
   },
-  mapOperations: (id: string, operations: { rawLabel: string; activity: string }[]) =>
+  mapOperations: (id: string, operations: { rawLabel: string; activity: string; description: string }[]) =>
     request<Process>(`/processes/${id}/operations`, { method: 'PUT', body: JSON.stringify({ operations }) }),
   renameProcess: (id: string, name: string) => request<Process>(`/processes/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
   deleteProcess: (id: string) => request<void>(`/processes/${id}`, { method: 'DELETE' }),

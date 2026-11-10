@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Layers, ListTree, Loader2, ScanLine, Trash2, X } from 'lucide-react'
+import { Layers, ListTree, Loader2, ScanLine, Trash2, Upload, X } from 'lucide-react'
 import { api } from '../api/client'
 import type { GraphNode, Process, ProcessSummary, Trace } from '../api/types'
 import { AppHeader } from '../components/AppHeader'
@@ -11,7 +11,7 @@ import { TraceList, type TraceGroup } from '../components/TraceList'
 import { ProcessGraph } from '../features/graph/ProcessGraph'
 import { GRAD_DEEP, GRAD_LIGHT, filterByDensity } from '../features/graph/geometry'
 import { NewAnalysisModal } from '../features/analysis/NewAnalysisModal'
-import { RemapModal, UploadLogModal } from '../features/process/UploadLogModal'
+import { EventLogModal } from '../features/process/EventLogModal'
 import { duration, number } from '../lib/format'
 import './process-page.css'
 
@@ -27,7 +27,7 @@ export function ProcessPage() {
   const [showTraces, setShowTraces] = useState(true)
   const [actPct, setActPct] = useState(100)
   const [pathPct, setPathPct] = useState(60)
-  const [modal, setModal] = useState<'remap' | 'delete' | 'analysis' | null>(null)
+  const [modal, setModal] = useState<'upload' | 'resume' | 'remap' | 'delete' | 'analysis' | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
@@ -116,10 +116,7 @@ export function ProcessPage() {
       ) : !process ? (
         <div className="loading"><Loader2 size={16} className="spin" />Carregando processo…</div>
       ) : process.status !== 'pronto' || !filtered ? (
-        <>
-          <div className="empty"><p>Este processo ainda não tem as operações mapeadas.</p></div>
-          <UploadLogModal resume={process} onClose={() => navigate('/app')} onDone={(p) => setProcess(p)} />
-        </>
+        <EmptyCanvas process={process} onUpload={() => setModal('upload')} onResume={() => setModal('resume')} />
       ) : (
         <div className="page-body">
           {showTraces && (
@@ -183,8 +180,13 @@ export function ProcessPage() {
         </div>
       )}
 
-      {modal === 'remap' && process && (
-        <RemapModal process={process} onClose={() => setModal(null)} onDone={(p) => { setProcess(p); setTraces(null); setSelected(null); setVariant(null); setModal(null) }} />
+      {(modal === 'upload' || modal === 'resume' || modal === 'remap') && process && (
+        <EventLogModal
+          process={process}
+          mode={modal}
+          onClose={(p) => { setProcess(p); setModal(null) }}
+          onDone={(p) => { setProcess(p); setTraces(null); setSelected(null); setVariant(null); setTrace(null); setModal(null) }}
+        />
       )}
       {modal === 'delete' && process && (
         <ConfirmDelete
@@ -204,6 +206,36 @@ export function ProcessPage() {
           onCreated={(a) => navigate(`/analises/${a.id}`)}
         />
       )}
+    </div>
+  )
+}
+
+/** Processo sem log (vazio) ou com mapeamento pendente: diz isso e oferece o próximo passo. */
+function EmptyCanvas({ process, onUpload, onResume }: { process: Process; onUpload: () => void; onResume: () => void }) {
+  const mapping = process.status === 'mapeando'
+  return (
+    <div className="empty-canvas">
+      <div className="empty-canvas-inner">
+        <span className="empty-canvas-icon"><Upload size={18} /></span>
+        <div>
+          <p className="empty-canvas-title">{mapping ? 'Mapeamento pendente' : 'Nenhum log de eventos neste processo'}</p>
+          <p className="empty-canvas-text">
+            {mapping
+              ? `${process.fileName} foi carregado (${number(process.traceCount)} traces). Associe cada evento a uma atividade para desenhar o grafo.`
+              : 'O grafo é derivado do log de eventos. Envie um arquivo .xes ou .csv para desenhar este processo.'}
+          </p>
+        </div>
+        <div className="empty-canvas-actions">
+          {mapping ? (
+            <>
+              <button type="button" className="btn" onClick={onUpload}><Upload size={14} />Carregar outro log</button>
+              <button type="button" className="btn btn-primary" onClick={onResume}><ListTree size={14} />Continuar mapeamento</button>
+            </>
+          ) : (
+            <button type="button" className="btn btn-primary" onClick={onUpload}><Upload size={14} />Carregar log de eventos</button>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
