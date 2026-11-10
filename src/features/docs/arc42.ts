@@ -35,7 +35,7 @@ export const SECTION_BLURBS: Record<string, string> = {
   7: 'Infraestrutura técnica e mapeamento dos blocos',
   8: 'Regras e soluções que valem para vários blocos',
   9: 'Decisões importantes, caras ou arriscadas',
-  10: 'Árvore e cenários de qualidade',
+  10: 'Cenários de qualidade verificáveis',
   11: 'Riscos e dívidas técnicas conhecidos',
   12: 'Termos de domínio e técnicos',
 }
