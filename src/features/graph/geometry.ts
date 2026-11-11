@@ -97,12 +97,16 @@ interface CPt { c: number; a: number }
 interface Box extends CPt { id: string; kind: LaidNode['kind']; hc: number; ha: number; col: number }
 /** before/after: faces voltadas para o início e para o fim do fluxo; low/high: as duas laterais. */
 type Face = 'before' | 'after' | 'low' | 'high'
-interface Route { kind: 'straight' | 'sweep' | 'row' | 'elbow' | 'arc'; sFace: Face; tFace: Face }
+interface Route { kind: 'straight' | 'sweep' | 'row' | 'elbow' | 'arc' | 'radial'; sFace: Face; tFace: Face }
+/** sOff e tOff: deslocamento ao longo da face do card; num círculo, o ângulo em volta dele. */
 interface Wire { edge: GraphEdge; id: string; s: Box; t: Box; route: Route; sOff: number; tOff: number; lane: number }
 interface Metrics { hc: number; ha: number; rank: number; col: number }
 
 const isSide = (f: Face) => f === 'low' || f === 'high'
+const isCircle = (b: Box) => b.kind !== 'activity'
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+/** Folga entre a ponta da seta e a borda do elemento em que ela chega. */
+const TIP_GAP = 4
 
 function metrics(layout: Layout): Metrics {
   return layout === 'vertical'
@@ -149,9 +153,9 @@ export function layoutGraph(nodes: GraphNode[], edges: GraphEdge[], layout: Layo
   const byId = new Map(laid.map((n) => [n.id, n]))
   const laidEdges: LaidEdge[] = [
     ...wires.map((w) => {
-      const [p0, p1, p2, p3] = wireShape(w).map(toPt)
-      // no cotovelo o rótulo fica no trecho reto, longe do canto
-      const labelAt = w.route.kind === 'elbow' ? (isSide(w.route.sFace) ? 0.26 : 0.74) : 0.5
+      const [p0, p1, p2, p3] = wireShape(w, all).map(toPt)
+      // na curva de canto o rótulo fica perto da origem, onde a seta ainda é fina, e deixa a curva e a ponta à vista
+      const labelAt = w.route.kind === 'elbow' ? 0.24 : 0.5
       return {
         id: w.id, source: w.edge.source, target: w.edge.target, frequency: w.edge.frequency, share: Math.min(1, w.edge.frequency / maxEdge),
         isSelf: false, isBack: w.t.a < w.s.a - 1, isEndpoint: endpoint(w.edge), curve: { p0, p1, p2, p3, mid: cubicAt(p0, p1, p2, p3, labelAt) },
@@ -254,40 +258,96 @@ function chooseRoute(s: Box, t: Box, boxes: Box[], m: Metrics): Route {
     return { kind: 'arc', sFace: face, tFace: face }
   }
   const toward = (from: Box, to: Box): Face => (to.c > from.c ? 'high' : 'low')
+  // início e fim são círculos: a ligação chega na direção de onde vem, em volta da circunferência
+  if (isCircle(s) || isCircle(t)) {
+    const act = isCircle(s) ? t : s
+    const circ = isCircle(s) ? s : t
+    const room = isCircle(s) ? act.a - act.ha - (circ.a + CIRC_R) : circ.a - CIRC_R - (act.a + act.ha)
+    const face: Face = room > 8 ? (isCircle(s) ? 'before' : 'after') : toward(act, circ)
+    return { kind: 'radial', sFace: isCircle(s) ? 'after' : face, tFace: isCircle(s) ? face : 'before' }
+  }
   if (Math.abs(t.a - s.a) < m.rank * 0.25) return { kind: 'row', sFace: toward(s, t), tFace: toward(t, s) }
   const clearance = forward ? t.a - t.ha - (s.a + s.ha) : -1
   if (clearance >= (m.rank - 2 * m.ha) * 0.6) return { kind: 'sweep', sFace: 'after', tFace: 'before' }
-  // nó ao lado, a meia altura: o de dentro usa a lateral e o de fora usa o topo ou a base
+  // nó ao lado, a meia altura. Descendo, sai pela lateral e chega pelo topo, que tem mais espaço que a lateral
+  if (forward) return { kind: 'elbow', sFace: toward(s, t), tFace: 'before' }
+  // voltando, o de dentro usa a lateral e o de fora usa o topo ou a base
   return Math.abs(s.col) <= Math.abs(t.col)
-    ? { kind: 'elbow', sFace: toward(s, t), tFace: forward ? 'before' : 'after' }
-    : { kind: 'elbow', sFace: forward ? 'after' : 'before', tFace: toward(t, s) }
+    ? { kind: 'elbow', sFace: toward(s, t), tFace: 'after' }
+    : { kind: 'elbow', sFace: 'before', tFace: toward(t, s) }
 }
 
-/** Espalha pela face as arestas que usam a mesma face de um nó, na ordem em que os vizinhos aparecem. */
+/** Onde a ponta da aresta gostaria de ficar: no centro quando o vizinho está em linha, perto do canto quando está de lado. */
+function idealPort(box: Box, other: Box, face: Face, kind: Route['kind'], half: number): number {
+  if (kind === 'straight') return 0
+  if (isCircle(box)) {
+    if (kind === 'arc') return face === 'high' ? Math.PI / 2 : -Math.PI / 2
+    // ângulo de onde o vizinho aparece, medido a partir do sentido do fluxo
+    return clamp(Math.atan2(other.c - box.c, Math.max(1, Math.abs(other.a - box.a) - other.ha)), -half, half)
+  }
+  if (isSide(face)) {
+    const toward = Math.sign(other.a - box.a)
+    return kind === 'arc' ? toward * half * 0.7 : 0
+  }
+  // topo ou base: quanto mais de lado e mais perto está o vizinho, mais a ponta vai para o canto
+  const across = other.c - box.c
+  const gap = Math.max(0, Math.abs(other.a - box.a) - box.ha - other.ha)
+  return Math.abs(across) < 1 ? 0 : Math.sign(across) * half * (Math.abs(across) / (Math.abs(across) + 1.6 * gap))
+}
+
+/** Ajusta posições já ordenadas para caberem em [lo, hi] com uma distância mínima, mexendo o menos possível. */
+function fit(ideal: number[], lo: number, hi: number, sep: number): number[] {
+  const n = ideal.length
+  if (!n) return []
+  const s = n > 1 ? Math.max(0, Math.min(sep, (hi - lo) / (n - 1))) : 0
+  let x = [...ideal]
+  for (let i = 1; i < n; i++) x[i] = Math.max(x[i], x[i - 1] + s)
+  const mean = (v: number[]) => v.reduce((sum, k) => sum + k, 0) / v.length
+  const shift = mean(ideal) - mean(x)
+  x = x.map((v) => v + shift)
+  x[n - 1] = Math.min(x[n - 1], hi)
+  for (let i = n - 2; i >= 0; i--) x[i] = Math.min(x[i], x[i + 1] - s)
+  x[0] = Math.max(x[0], lo)
+  for (let i = 1; i < n; i++) x[i] = Math.max(x[i], x[i - 1] + s)
+  return x
+}
+
+/**
+ * Distribui as pontas que dividem a mesma face de um card, ou o mesmo círculo: cada uma perto de
+ * onde gostaria de ficar, sem encostar na vizinha. A ligação reta da espinha fica fixa no centro.
+ */
 function assignPorts(wires: Wire[]) {
-  const groups = new Map<string, { wire: Wire; end: 's' | 't' }[]>()
+  type End = { wire: Wire; end: 's' | 't'; ideal: number; sort: number }
+  const groups = new Map<string, { box: Box; face: Face; half: number; ends: End[] }>()
   for (const wire of wires) {
     for (const end of ['s', 't'] as const) {
-      const key = `${wire[end].id}\u0000${end === 's' ? wire.route.sFace : wire.route.tFace}`
-      groups.set(key, [...(groups.get(key) ?? []), { wire, end }])
+      const box = wire[end]
+      const other = end === 's' ? wire.t : wire.s
+      const face = end === 's' ? wire.route.sFace : wire.route.tFace
+      const key = isCircle(box) ? box.id : `${box.id}\u0000${face}`
+      const half = isCircle(box) ? Math.PI / 2 : (isSide(face) ? box.ha : box.hc) * 0.6
+      const group = groups.get(key) ?? { box, face, half, ends: [] }
+      group.ends.push({ wire, end, ideal: idealPort(box, other, face, wire.route.kind, half), sort: isSide(face) && !isCircle(box) ? other.a : other.c })
+      groups.set(key, group)
     }
   }
-  groups.forEach((list) => {
-    const { wire, end } = list[0]
-    const box = wire[end]
-    const face = end === 's' ? wire.route.sFace : wire.route.tFace
-    const pos = (b: Box) => (isSide(face) ? b.a : b.c)
-    const other = (x: { wire: Wire; end: 's' | 't' }) => (x.end === 's' ? x.wire.t : x.wire.s)
-    list.sort((x, y) => pos(other(x)) - pos(other(y)) || (x.wire.id < y.wire.id ? -1 : 1))
-    const half = box.kind === 'activity' ? (isSide(face) ? box.ha * 0.62 : box.hc * 0.56) : CIRC_R * 0.62
-    const sep = list.length > 1 ? Math.min(isSide(face) ? 26 : 34, (2 * half) / (list.length - 1)) : 0
-    // a aresta alinhada com o nó (a da espinha) fica no centro, para seguir reta
-    const aligned = list.findIndex((x) => Math.abs(pos(other(x)) - pos(box)) < 1)
-    const base = aligned >= 0 ? aligned : (list.length - 1) / 2
-    list.forEach((x, i) => {
-      const off = clamp((i - base) * sep, -half, half)
-      if (x.end === 's') x.wire.sOff = off
-      else x.wire.tOff = off
+  groups.forEach(({ box, face, half, ends }) => {
+    ends.sort((x, y) => x.ideal - y.ideal || x.sort - y.sort || (x.wire.id < y.wire.id ? -1 : 1))
+    const sep = isCircle(box) ? 0.46 : isSide(face) ? 22 : 30
+    const pinned = ends.findIndex((x) => x.wire.route.kind === 'straight')
+    const ideal = ends.map((x) => x.ideal)
+    let offs: number[]
+    if (pinned < 0) offs = fit(ideal, -half, half, sep)
+    else {
+      const left = ideal.slice(0, pinned)
+      const right = ideal.slice(pinned + 1)
+      const sl = Math.min(sep, half / Math.max(1, left.length))
+      const sr = Math.min(sep, half / Math.max(1, right.length))
+      offs = [...fit(left, -half, -sl, sl), 0, ...fit(right, sr, half, sr)]
+    }
+    ends.forEach((x, i) => {
+      if (x.end === 's') x.wire.sOff = offs[i]
+      else x.wire.tOff = offs[i]
     })
   })
 }
@@ -308,47 +368,95 @@ function assignLanes(wires: Wire[], boxes: Box[]) {
   }
 }
 
-function facePoint(b: Box, face: Face, off: number): CPt {
-  if (b.kind !== 'activity') {
-    const d = Math.sqrt(Math.max(0, CIRC_R * CIRC_R - off * off)) - 1
-    if (face === 'before') return { c: b.c + off, a: b.a - d }
-    if (face === 'after') return { c: b.c + off, a: b.a + d }
-    return { c: b.c + (face === 'high' ? d : -d), a: b.a + off }
+/** Ponto em que a aresta toca o nó e a direção que aponta para fora dele. */
+function endPoint(b: Box, face: Face, off: number, gap: number): { p: CPt; n: CPt } {
+  if (isCircle(b)) {
+    // o fim recebe pelo lado de onde o fluxo vem; o início solta para o lado aonde o fluxo vai
+    const n = { c: Math.sin(off), a: (b.kind === 'end' ? -1 : 1) * Math.cos(off) }
+    return { p: { c: b.c + n.c * (CIRC_R + gap), a: b.a + n.a * (CIRC_R + gap) }, n }
   }
-  if (face === 'before') return { c: b.c + off, a: b.a - b.ha }
-  if (face === 'after') return { c: b.c + off, a: b.a + b.ha }
-  return { c: b.c + (face === 'high' ? b.hc : -b.hc), a: b.a + off }
+  if (face === 'before') return { p: { c: b.c + off, a: b.a - b.ha - gap }, n: { c: 0, a: -1 } }
+  if (face === 'after') return { p: { c: b.c + off, a: b.a + b.ha + gap }, n: { c: 0, a: 1 } }
+  const sign = face === 'high' ? 1 : -1
+  return { p: { c: b.c + sign * (b.hc + gap), a: b.a + off }, n: { c: sign, a: 0 } }
+}
+
+/** Inclina a direção de saída de uma face para o lado em que o outro nó está, em `deg` graus. */
+function lean(n: CPt, towardC: number, towardA: number, deg: number): CPt {
+  const side = -n.a * towardC + n.c * towardA >= 0 ? 1 : -1
+  const t = { c: -n.a * side, a: n.c * side }
+  const r = (deg * Math.PI) / 180
+  return { c: n.c * Math.cos(r) + t.c * Math.sin(r), a: n.a * Math.cos(r) + t.a * Math.sin(r) }
+}
+
+type Shape = [CPt, CPt, CPt, CPt]
+
+/** A primeira das curvas que não passa por cima de nenhum outro card; se todas passam, a preferida. */
+function firstClear(options: Shape[], w: Wire, boxes: Box[]): Shape {
+  const others = boxes.filter((b) => b !== w.s && b !== w.t)
+  const at = ([p0, p1, p2, p3]: Shape, t: number, k: 'c' | 'a') => {
+    const m = 1 - t
+    return m * m * m * p0[k] + 3 * m * m * t * p1[k] + 3 * m * t * t * p2[k] + t * t * t * p3[k]
+  }
+  const crosses = (shape: Shape) => {
+    for (let i = 1; i < 24; i++) {
+      const c = at(shape, i / 24, 'c')
+      const a = at(shape, i / 24, 'a')
+      if (others.some((b) => Math.abs(c - b.c) < b.hc + 8 && Math.abs(a - b.a) < b.ha + 8)) return true
+    }
+    return false
+  }
+  return options.find((o) => !crosses(o)) ?? options[0]
 }
 
 /** Pontos de controle da aresta, no espaço canônico. */
-function wireShape(w: Wire): [CPt, CPt, CPt, CPt] {
-  const p0 = facePoint(w.s, w.route.sFace, w.sOff)
-  const p3 = facePoint(w.t, w.route.tFace, w.tOff)
+function wireShape(w: Wire, boxes: Box[]): Shape {
+  const { p: p0, n: n0 } = endPoint(w.s, w.route.sFace, w.sOff, isCircle(w.s) ? 1 : 0)
+  const { p: p3, n: n3 } = endPoint(w.t, w.route.tFace, w.tOff, TIP_GAP)
+  const out = (p: CPt, n: CPt, k: number): CPt => ({ c: p.c + n.c * k, a: p.a + n.a * k })
+  const dc = p3.c - p0.c
+  const da = p3.a - p0.a
   switch (w.route.kind) {
-    case 'row': {
-      const d = (p3.c - p0.c) * 0.4
-      return [p0, { c: p0.c + d, a: p0.a }, { c: p3.c - d, a: p3.a }, p3]
-    }
     case 'elbow': {
-      // sai na horizontal pela lateral e chega na vertical pelo topo ou pela base
-      const fromSide = isSide(w.route.sFace)
-      const side = fromSide ? p0 : p3
-      const face = fromSide ? p3 : p0
-      // controles perto do canto: trecho reto na saída, canto arredondado e chegada reta, para a ponta não entortar
-      const nearSide = { c: side.c + (face.c - side.c) * 0.8, a: side.a }
-      const nearFace = { c: face.c, a: face.a + (side.a - face.a) * 0.95 }
-      return fromSide ? [p0, nearSide, nearFace, p3] : [p0, nearFace, nearSide, p3]
+      // curva curta e aberta: sai quase reta da lateral e chega inclinada perto do canto, sem dobrar em ângulo reto
+      const d0 = lean(n0, dc, da, isSide(w.route.sFace) ? 12 : 36)
+      const d3 = lean(n3, -dc, -da, isSide(w.route.tFace) ? 12 : 36)
+      // as duas direções se cruzam num ponto: com os controles a caminho dele a curva sai sempre convexa
+      const det = d0.c * -d3.a - d0.a * -d3.c
+      const u = Math.abs(det) > 1e-6 ? (dc * -d3.a - da * -d3.c) / det : -1
+      const v = Math.abs(det) > 1e-6 ? (d0.c * da - d0.a * dc) / det : -1
+      if (u > 0 && v > 0) return [p0, out(p0, d0, u * 0.62), out(p3, d3, v * 0.62), p3]
+      const k = 0.58
+      return [p0, out(p0, n0, k * Math.abs(dc * n0.c + da * n0.a)), out(p3, n3, k * Math.abs(dc * n3.c + da * n3.a)), p3]
     }
     case 'arc': {
       const sign = w.route.sFace === 'high' ? 1 : -1
       // o ápice de uma cúbica fica a 3/4 do controle
       const ctrl = (p0.c + p3.c) / 2 + (sign * w.lane) / 0.75
-      const d = (p3.a - p0.a) * 0.1
+      const d = da * 0.1
       return [p0, { c: ctrl, a: p0.a + d }, { c: ctrl, a: p3.a - d }, p3]
     }
+    case 'radial': {
+      // sai do card já inclinada para o círculo e chega apontando para o centro dele, sem fazer barriga
+      const fromCircle = isCircle(w.s)
+      const [circ, cn, act, face] = fromCircle ? [p0, n0, p3, n3] : [p3, n3, p0, n0]
+      const dist = Math.hypot(dc, da)
+      const room = (circ.c - act.c) * face.c + (circ.a - act.a) * face.a
+      const shape = (deg: number, drop: number): Shape => {
+        const an = lean(face, circ.c - act.c, circ.a - act.a, deg)
+        const limit = (dir: CPt) => (room > 0 ? Math.min(dist * 0.42, (room * drop) / Math.max(Math.abs(dir.c * face.c + dir.a * face.a), 0.05)) : dist * 0.42)
+        const c1 = out(act, an, Math.max(limit(an), 10))
+        const c2 = out(circ, cn, Math.max(limit(cn), 12))
+        return fromCircle ? [p0, c2, c1, p3] : [p0, c1, c2, p3]
+      }
+      // se a ligação passaria por trás de outro card, desce reta por mais tempo antes de virar
+      return firstClear([shape(30, 0.5), shape(0, 0.8), shape(0, 1)], w, boxes)
+    }
+    case 'row': return [p0, out(p0, n0, Math.abs(dc) * 0.4), out(p3, n3, Math.abs(dc) * 0.4), p3]
     default: {
-      const d = (p3.a - p0.a) * 0.46
-      return [p0, { c: p0.c, a: p0.a + d }, { c: p3.c, a: p3.a - d }, p3]
+      const shape = (k0: number, k3: number): Shape => [p0, out(p0, n0, Math.abs(da) * k0), out(p3, n3, Math.abs(da) * k3), p3]
+      // o S simétrico é o padrão; se ele cruza um card, vira mais cedo ou mais tarde
+      return w.route.kind === 'sweep' ? firstClear([shape(0.46, 0.46), shape(0.2, 0.8), shape(0.8, 0.2)], w, boxes) : shape(0.46, 0.46)
     }
   }
 }
@@ -376,7 +484,16 @@ function cubicTang(p0: Pt, p1: Pt, p2: Pt, p3: Pt, t: number): Pt {
 export const GRAD_LIGHT = '#c8e2f5'
 export const GRAD_MID = '#4d8fc0'
 export const GRAD_DEEP = '#2870a8'
-export const freqOpacity = (f: number) => 0.42 + f * 0.53
+export const freqOpacity = (f: number) => 0.5 + f * 0.5
+
+/** Cor da atividade pela frequência (0..1): do neutro dos cards, na rara, ao azul cheio, na mais executada. */
+const FILL_LOW = [43, 56, 73]
+const FILL_HIGH = [32, 92, 148]
+const STROKE_LOW = [72, 86, 104]
+const STROKE_HIGH = [96, 160, 214]
+const mix = (lo: number[], hi: number[], f: number) => `rgb(${lo.map((v, i) => Math.round(v + (hi[i] - v) * clamp(f, 0, 1))).join(',')})`
+export const activityFill = (f: number) => mix(FILL_LOW, FILL_HIGH, f)
+export const activityStroke = (f: number) => mix(STROKE_LOW, STROKE_HIGH, f)
 // raiz quadrada: num log real, caminhos de dezenas de casos não somem ao lado de um de milhares
 export const freqHalfW = (f: number) => 1.5 + Math.sqrt(f) * 9.0
 
@@ -384,45 +501,37 @@ export function curvePath(c: Curve): string {
   return `M ${c.p0.x},${c.p0.y} C ${c.p1.x},${c.p1.y} ${c.p2.x},${c.p2.y} ${c.p3.x},${c.p3.y}`
 }
 
-/** Seta afunilada: quase um ponto na origem, corpo cheio no pescoço e ponta com ângulo de ~30°. */
+/** Seta afunilada: quase um ponto na origem, corpo cheio no pescoço e ponta reta com ângulo de ~30°. */
 export function arrowPath(c: Curve, baseHW: number, N = 32): string {
-  const sample = (t: number) => cubicAt(c.p0, c.p1, c.p2, c.p3, t)
-  const tang = (t: number) => cubicTang(c.p0, c.p1, c.p2, c.p3, t)
   const START_HW = 0.4
-  const headHW = baseHW * 1.8
-  const headLength = headHW * 1.6
+  // a ponta tem um tamanho mínimo: num caminho raro ela continua legível
+  const headHW = Math.max(baseHW * 1.8, 6.5)
+  const tE = cubicTang(c.p0, c.p1, c.p2, c.p3, 1)
+  const nE = perp(tE)
+  const span = Math.hypot(c.p3.x - c.p0.x, c.p3.y - c.p0.y)
+  const back = Math.min(headHW * 1.7, span * 0.6)
+  // o corpo termina no pescoço, já na direção de chegada: a ponta é a continuação reta dele
+  const shift = (p: Pt) => ({ x: p.x - tE.x * back, y: p.y - tE.y * back })
+  const neck = shift(c.p3)
+  const q2 = shift(c.p2)
   const S = N * 2
-  const pts = Array.from({ length: S + 1 }, (_, i) => sample(i / S))
+  const pts = Array.from({ length: S + 1 }, (_, i) => cubicAt(c.p0, c.p1, q2, neck, i / S))
   const cum = [0]
   for (let i = 1; i <= S; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y))
-  const neckDist = Math.max(0, cum[S] - headLength)
-  let ni = S
-  for (let i = 1; i <= S; i++) if (cum[i] >= neckDist) { ni = i; break }
-  const NECK = ni / S
   const right: Pt[] = []
   const left: Pt[] = []
   for (let i = 0; i <= N; i++) {
-    const t = (i / N) * NECK
-    const p = sample(t)
-    const n = perp(tang(t))
-    // a espessura cresce com a distância percorrida, não com o parâmetro: curvas com canto afinam por igual
-    const j = (i / N) * ni
-    const j0 = Math.floor(j)
-    const dist = cum[j0] + (cum[Math.min(S, j0 + 1)] - cum[j0]) * (j - j0)
-    const hw = START_HW + (baseHW - START_HW) * (neckDist > 0 ? Math.min(1, dist / neckDist) : 1)
+    const p = pts[i * 2]
+    const n = i === N ? nE : perp(cubicTang(c.p0, c.p1, q2, neck, i / N))
+    // a espessura cresce com a distância percorrida, não com o parâmetro: a curva afina por igual
+    const hw = START_HW + (baseHW - START_HW) * (cum[S] > 0 ? cum[i * 2] / cum[S] : 1)
     right.push({ x: p.x + n.x * hw, y: p.y + n.y * hw })
     left.push({ x: p.x - n.x * hw, y: p.y - n.y * hw })
   }
-  // a ponta é reta e segue a direção de chegada, mesmo quando a curva vira perto do fim
-  const tip = sample(1)
-  const tE = tang(1)
-  const nE = perp(tE)
-  const back = Math.min(headLength, cum[S])
-  const pN = { x: tip.x - tE.x * back, y: tip.y - tE.y * back }
-  const aR = { x: pN.x + nE.x * headHW, y: pN.y + nE.y * headHW }
-  const aL = { x: pN.x - nE.x * headHW, y: pN.y - nE.y * headHW }
+  const aR = { x: neck.x + nE.x * headHW, y: neck.y + nE.y * headHW }
+  const aL = { x: neck.x - nE.x * headHW, y: neck.y - nE.y * headHW }
   const f = (p: Pt) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`
-  return [`M ${f(right[0])}`, ...right.slice(1).map((p) => `L ${f(p)}`), `L ${f(aR)}`, `L ${f(tip)}`, `L ${f(aL)}`, ...left.slice().reverse().map((p) => `L ${f(p)}`), 'Z'].join(' ')
+  return [`M ${f(right[0])}`, ...right.slice(1).map((p) => `L ${f(p)}`), `L ${f(aR)}`, `L ${f(c.p3)}`, `L ${f(aL)}`, ...left.slice().reverse().map((p) => `L ${f(p)}`), 'Z'].join(' ')
 }
 
 export function bounds(nodes: LaidNode[], edges: LaidEdge[] = []) {

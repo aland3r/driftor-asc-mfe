@@ -69,4 +69,31 @@ describe('grafo do processo', () => {
     const leave = laid.edges.find((e) => e.source === 'A' && e.target === 'Ajuste')!
     expect(leave.curve.p0.x).toBeCloseTo(at('A').x + NODE_W) // sai pela lateral direita de A
   })
+  it('quem volta para a espinha por cima chega pelo topo do card, perto do canto, e a ponta não encosta na borda', () => {
+    const loop = [node('A', 100, 100), node('B', 100, 0, 100), node('Ajuste', 20)]
+    const laid = layoutGraph(loop, [
+      { source: START_ID, target: 'A', frequency: 100 }, { source: 'A', target: 'B', frequency: 80 }, { source: 'B', target: END_ID, frequency: 100 },
+      { source: 'A', target: 'Ajuste', frequency: 20 }, { source: 'Ajuste', target: 'B', frequency: 20 },
+    ], 'vertical')
+    const b = laid.nodes.find((n) => n.id === 'B')!
+    const back = laid.edges.find((e) => e.source === 'Ajuste' && e.target === 'B')!
+    expect(back.curve.p3.y).toBeLessThan(b.y) // acima do topo de B, com folga
+    expect(b.y - back.curve.p3.y).toBeGreaterThanOrEqual(3)
+    expect(back.curve.p3.x).toBeGreaterThan(b.x + NODE_W / 2 + 20) // do lado de onde a seta vem, fora do centro
+    const main = laid.edges.find((e) => e.source === 'A' && e.target === 'B')!
+    expect(main.curve.p3.x).toBeCloseTo(b.x + NODE_W / 2) // a espinha continua no centro
+  })
+  it('as chegadas ao fim se espalham em volta do círculo', () => {
+    const fan = [node('A', 100, 100, 60), node('B', 20, 0, 20), node('C', 15, 0, 15), node('D', 5, 0, 5)]
+    const f = filterByDensity(fan, [
+      { source: 'A', target: 'B', frequency: 20 }, { source: 'A', target: 'C', frequency: 15 }, { source: 'A', target: 'D', frequency: 5 },
+    ], 100, 100)
+    const laid = layoutGraph(f.nodes, f.edges, 'vertical')
+    const end = laid.nodes.find((n) => n.id === END_ID)!
+    const angles = laid.edges.filter((e) => e.target === END_ID)
+      .map((e) => (Math.atan2(e.curve.p3.x - (end.x + CIRC_R), end.y + CIRC_R - e.curve.p3.y) * 180) / Math.PI)
+      .sort((x, y) => x - y)
+    expect(angles).toHaveLength(4)
+    for (let i = 1; i < angles.length; i++) expect(angles[i] - angles[i - 1]).toBeGreaterThan(20)
+  })
 })

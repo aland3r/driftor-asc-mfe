@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { Maximize2, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import type { GraphEdge, GraphNode } from '../../api/types'
-import { duration, number } from '../../lib/format'
+import { number } from '../../lib/format'
 import {
   CIRC_R, GRAD_DEEP, GRAD_LIGHT, GRAD_MID, NODE_H, NODE_W,
-  arrowPath, bounds, curvePath, freqHalfW, freqOpacity, hitTest, layoutGraph,
+  activityFill, activityStroke, arrowPath, bounds, curvePath, freqHalfW, freqOpacity, hitTest, layoutGraph,
   type LaidNode, type Layout,
 } from './geometry'
 import './graph.css'
@@ -213,20 +213,15 @@ function EndNode() {
 }
 
 function ActivityNode({ node, selected }: { node: LaidNode; selected: boolean }) {
-  const strong = node.share >= 0.5
-  const a = 0.25 + node.share * 0.65
   const label = node.label.length > 21 ? `${node.label.slice(0, 20)}…` : node.label
-  const n = node.node!
   return (
     <g style={{ cursor: 'pointer' }}>
-      <title>{node.label}</title>
-      {selected && <rect x={-4} y={-4} width={NODE_W + 8} height={NODE_H + 8} rx={8} fill="rgba(245,158,11,0.08)" stroke="#f59e0b" strokeWidth={1.5} />}
-      <rect width={NODE_W} height={NODE_H} rx={6} fill={strong ? '#22344a' : '#2b3849'} stroke={strong ? 'rgba(77,143,192,0.4)' : 'rgba(255,255,255,0.12)'} />
-      <rect width={NODE_W} height={3} rx={1.5} fill={`rgba(77,143,192,${a.toFixed(2)})`} />
-      <text x={12} y={26} fontSize={13} fontFamily="'Inter',sans-serif" fontWeight={500} fill={strong ? '#c8dff0' : '#e2e8f0'}>{label}</text>
-      <text x={12} y={46} fontSize={12} fontFamily="'JetBrains Mono',monospace" fill={strong ? '#7fb3da' : '#94a3b8'}>
-        {number(n.frequency)} · {duration(n.meanDurationSeconds)}
-      </text>
+      <title>{`${node.label}: ${number(node.node!.frequency)} execuções`}</title>
+      {selected && <rect x={-4} y={-4} width={NODE_W + 8} height={NODE_H + 8} rx={9} fill="rgba(245,158,11,0.08)" stroke="#f59e0b" strokeWidth={1.5} />}
+      {/* a cor do card é a frequência absoluta da atividade, na mesma escala da legenda */}
+      <rect width={NODE_W} height={NODE_H} rx={6} fill={activityFill(node.share)} stroke={activityStroke(node.share)} />
+      <text x={12} y={27} fontSize={13} fontFamily="'Inter',sans-serif" fontWeight={500} fill="#eef4fa">{label}</text>
+      <text x={12} y={47} fontSize={12} fontFamily="'JetBrains Mono',monospace" fill="#cbdff0">{number(node.node!.frequency)}</text>
     </g>
   )
 }

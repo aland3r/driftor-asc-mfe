@@ -9,11 +9,14 @@ import { ConfirmDelete } from '../components/Modal'
 import { Slider } from '../components/Slider'
 import { TraceList, type TraceGroup } from '../components/TraceList'
 import { ProcessGraph } from '../features/graph/ProcessGraph'
-import { GRAD_DEEP, GRAD_LIGHT, filterByDensity } from '../features/graph/geometry'
+import { END_ID, GRAD_DEEP, GRAD_LIGHT, START_ID, activityFill, activityStroke, filterByDensity, freqHalfW, freqOpacity } from '../features/graph/geometry'
 import { NewAnalysisModal } from '../features/analysis/NewAnalysisModal'
 import { EventLogModal } from '../features/process/EventLogModal'
 import { duration, number } from '../lib/format'
 import './process-page.css'
+
+/** O que as cores e as espessuras do grafo mostram. Por ora só a frequência absoluta, que é o que o log mapeado entrega para atividades e caminhos. */
+type Metric = 'frequency'
 
 export function ProcessPage() {
   const { id = '' } = useParams()
@@ -27,7 +30,8 @@ export function ProcessPage() {
   const [showTraces, setShowTraces] = useState(true)
   const [actPct, setActPct] = useState(100)
   const [pathPct, setPathPct] = useState(60)
-  const [modal, setModal] = useState<'upload' | 'resume' | 'remap' | 'delete' | 'analysis' | null>(null)
+  const [modal, setModal] = useState<'upload' | 'resume' | 'remap' | 'delete' | 'analysis' | 'analysis-activity' | null>(null)
+  const [metric, setMetric] = useState<Metric>('frequency')
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
@@ -46,6 +50,11 @@ export function ProcessPage() {
   const graph = process?.graph
   const filtered = useMemo(() => (graph ? filterByDensity(graph.nodes, graph.edges, actPct, pathPct) : null), [graph, actPct, pathPct])
   const node = graph?.nodes.find((n) => n.id === selected) ?? null
+  // as duas escalas do grafo: a atividade mais executada e a transição mais percorrida entre as visíveis
+  const scale = useMemo(() => ({
+    activity: Math.max(1, ...(filtered?.nodes ?? []).map((n) => n.frequency)),
+    path: Math.max(1, ...(filtered?.edges ?? []).filter((e) => e.source !== START_ID && e.target !== END_ID).map((e) => e.frequency)),
+  }), [filtered])
 
   const groups: TraceGroup[] = useMemo(() => {
     if (!process) return []
@@ -143,37 +152,42 @@ export function ProcessPage() {
               </button>
             )}
           </div>
-          <aside className="side" aria-label="Detalhes do grafo">
-            <div className="side-section">
-              <h2 className="panel-title">Densidade do grafo</h2>
-              <Slider label="Atividades" value={actPct} onChange={setActPct} />
-              <Slider label="Caminhos" value={pathPct} onChange={setPathPct} />
-              <div className="density-count">
-                <span><b>{filtered.nodes.length}</b> de {graph!.nodes.length} atividades</span>
-                <span><b>{filtered.edges.length}</b> caminhos</span>
-              </div>
-            </div>
-            <div className="side-section legend">
-              <h2 className="panel-title">Frequência dos caminhos</h2>
-              <div className="legend-bars" aria-hidden="true">
-                {[3, 5, 8, 12, 18].map((h, i) => <span key={h} style={{ height: h, opacity: 0.42 + i * 0.13, background: `linear-gradient(90deg, ${GRAD_LIGHT}, ${GRAD_DEEP})` }} />)}
-              </div>
-              <div className="legend-ends"><span>raro</span><span>frequente</span></div>
-            </div>
-            {node ? <NodeDetail node={node} onClose={() => setSelected(null)} /> : (
-              <div className="empty node-empty">
-                <p style={{ margin: 0, color: 'var(--text)' }}>Selecione uma atividade</p>
-                <p style={{ margin: 0 }}>Clique em um nó para ver frequência e duração.</p>
+          <aside className="side" aria-label="Painel do processo e da atividade">
+            <div className="side-scroll">
+              {/* tudo o que fica fora do computador de bordo vale para o processo inteiro e não muda com a seleção */}
+              <section className="side-section" aria-labelledby="side-process">
+                <div className="side-head">
+                  <h2 className="panel-title" id="side-process">Processo</h2>
+                  <span className="side-file" title={process.fileName}>{process.fileName}</span>
+                </div>
                 <dl className="process-facts">
                   <div><dt>Traces</dt><dd>{number(process.traceCount)}</dd></div>
                   <div><dt>Eventos</dt><dd>{number(process.eventCount)}</dd></div>
                   <div><dt>Variantes</dt><dd>{number(process.variantCount)}</dd></div>
-                  <div><dt>Arquivo</dt><dd title={process.fileName}>{process.fileName}</dd></div>
                 </dl>
-              </div>
-            )}
+              </section>
+              <section className="side-section">
+                <h2 className="panel-title">Densidade do grafo</h2>
+                <Slider label="Atividades" value={actPct} onChange={setActPct} />
+                <Slider label="Caminhos" value={pathPct} onChange={setPathPct} />
+                <div className="density-count">
+                  <span><b>{filtered.nodes.length}</b> de {graph!.nodes.length} atividades</span>
+                  <span><b>{filtered.edges.length}</b> caminhos</span>
+                </div>
+              </section>
+              <section className="side-section">
+                <label className="metric">
+                  <span className="panel-title">Mostrar</span>
+                  <select className="field" value={metric} onChange={(e) => setMetric(e.target.value as Metric)}>
+                    <option value="frequency">Frequência absoluta</option>
+                  </select>
+                </label>
+                <FrequencyScales maxActivity={scale.activity} maxPath={scale.path} />
+              </section>
+              <ActivityBoard node={node} onClose={() => setSelected(null)} onAnalyse={() => setModal('analysis-activity')} />
+            </div>
             <div className="side-foot">
-              <span className="side-scope">{node ? `Série: tempo em ${node.label}` : 'Série: duração total de cada trace'}</span>
+              <span className="side-scope">Processo inteiro: duração total de cada trace</span>
               <button type="button" className="btn btn-primary" onClick={() => setModal('analysis')}><ScanLine size={14} />Gerar Análise de Desvios</button>
             </div>
           </aside>
@@ -197,11 +211,11 @@ export function ProcessPage() {
           onConfirm={remove}
         />
       )}
-      {modal === 'analysis' && process && (
+      {(modal === 'analysis' || modal === 'analysis-activity') && process && (
         <NewAnalysisModal
           processes={[process as ProcessSummary]}
           initialProcessId={process.id}
-          initialActivity={node?.label ?? null}
+          initialActivity={modal === 'analysis-activity' ? node?.label ?? null : null}
           onClose={() => setModal(null)}
           onCreated={(a) => navigate(`/analises/${a.id}`)}
         />
@@ -240,47 +254,83 @@ function EmptyCanvas({ process, onUpload, onResume }: { process: Process; onUplo
   )
 }
 
-function NodeDetail({ node, onClose }: { node: GraphNode; onClose: () => void }) {
-  const [tab, setTab] = useState<'freq' | 'perf'>('freq')
-  const max = Math.max(1, ...node.histogram)
+const SCALE_STEPS = [0.1, 0.4, 0.7, 1]
+
+/** Legenda das duas escalas de frequência absoluta: a cor dos cards e a espessura das setas. */
+function FrequencyScales({ maxActivity, maxPath }: { maxActivity: number; maxPath: number }) {
   return (
-    <div className="node-detail">
-      <div className="node-detail-head">
-        <h3>{node.label}</h3>
-        <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={onClose} aria-label="Fechar detalhe"><X size={14} /></button>
+    <div className="scales">
+      <div className="scale">
+        <span className="scale-name">Atividades</span>
+        {SCALE_STEPS.map((f) => <span key={f} className="scale-card" aria-hidden="true" style={{ background: activityFill(f), borderColor: activityStroke(f) }} />)}
+        <span className="scale-unit">execuções</span>
+        {SCALE_STEPS.map((f) => <span key={f} className="scale-tick">{number(Math.max(1, Math.round(maxActivity * f)))}</span>)}
       </div>
-      <div className="tabs" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === 'freq'} onClick={() => setTab('freq')}>Frequência</button>
-        <button type="button" role="tab" aria-selected={tab === 'perf'} onClick={() => setTab('perf')}>Desempenho</button>
-      </div>
-      <div className="node-detail-body">
-        {tab === 'freq' ? (
-          <>
-            <div className="stat-row"><span>Frequência absoluta</span><span>{number(node.frequency)}</span></div>
-            <div className="stat-row"><span>Traces com a atividade</span><span>{number(node.caseFrequency)}</span></div>
-            <div className="stat-row"><span>Máx. repetições no trace</span><span>{node.maxRepetitions}×</span></div>
-            <div className="stat-row"><span>Inicia o trace</span><span>{number(node.startFrequency)}</span></div>
-            <div className="stat-row"><span>Encerra o trace</span><span>{number(node.endFrequency)}</span></div>
-          </>
-        ) : (
-          <>
-            <div className="stat-row"><span>Duração total</span><span>{duration(node.totalDurationSeconds)}</span></div>
-            <div className="stat-row"><span>Duração média</span><span>{duration(node.meanDurationSeconds)}</span></div>
-            <div className="stat-row"><span>Duração mediana</span><span>{duration(node.medianDurationSeconds)}</span></div>
-            <div className="stat-row"><span>Duração mínima</span><span>{duration(node.minDurationSeconds)}</span></div>
-            <div className="stat-row"><span>Duração máxima</span><span>{duration(node.maxDurationSeconds)}</span></div>
-            {node.histogram.length > 0 && (
-              <div className="histogram">
-                <span className="field-label">Distribuição da duração</span>
-                <div className="histogram-bars">
-                  {node.histogram.map((v, i) => <span key={i} title={`${v} ocorrências`} style={{ height: `${Math.max(4, (v / max) * 100)}%`, opacity: 0.35 + (v / max) * 0.65 }} />)}
-                </div>
-                <div className="legend-ends"><span>{duration(node.minDurationSeconds)}</span><span>{duration(node.maxDurationSeconds)}</span></div>
-              </div>
-            )}
-          </>
-        )}
+      <div className="scale">
+        <span className="scale-name">Caminhos</span>
+        {SCALE_STEPS.map((f) => <span key={f} className="scale-path" aria-hidden="true"><i style={{ height: Math.round(freqHalfW(f) * 1.2), opacity: freqOpacity(f), background: `linear-gradient(90deg, ${GRAD_LIGHT}, ${GRAD_DEEP})` }} /></span>)}
+        <span className="scale-unit">transições</span>
+        {SCALE_STEPS.map((f) => <span key={f} className="scale-tick">{number(Math.max(1, Math.round(maxPath * f)))}</span>)}
       </div>
     </div>
+  )
+}
+
+/** Computador de bordo: só o que está aqui dentro se refere à atividade selecionada no grafo. */
+function ActivityBoard({ node, onClose, onAnalyse }: { node: GraphNode | null; onClose: () => void; onAnalyse: () => void }) {
+  const [tab, setTab] = useState<'freq' | 'perf'>('freq')
+  const max = Math.max(1, ...(node?.histogram ?? []))
+  return (
+    <section className={`board${node ? ' is-on' : ''}`} aria-label="Computador de bordo da atividade">
+      <header className="board-head">
+        <span className="board-led" aria-hidden="true" />
+        <div className="board-title">
+          <span className="panel-title">Atividade</span>
+          <h3>{node ? node.label : 'Nenhuma selecionada'}</h3>
+        </div>
+        {node && <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={onClose} aria-label="Fechar atividade"><X size={14} /></button>}
+      </header>
+      {!node ? (
+        <p className="board-idle">Clique em uma atividade do grafo. Os indicadores dela aparecem aqui, separados dos dados do processo.</p>
+      ) : (
+        <>
+          <div className="tabs" role="tablist">
+            <button type="button" role="tab" aria-selected={tab === 'freq'} onClick={() => setTab('freq')}>Frequência</button>
+            <button type="button" role="tab" aria-selected={tab === 'perf'} onClick={() => setTab('perf')}>Desempenho</button>
+          </div>
+          <div className="board-body">
+            {tab === 'freq' ? (
+              <>
+                <div className="readout"><span>Frequência absoluta</span><strong>{number(node.frequency)}</strong></div>
+                <div className="stat-row"><span>Traces com a atividade</span><span>{number(node.caseFrequency)}</span></div>
+                <div className="stat-row"><span>Máx. repetições no trace</span><span>{node.maxRepetitions}×</span></div>
+                <div className="stat-row"><span>Inicia o trace</span><span>{number(node.startFrequency)}</span></div>
+                <div className="stat-row"><span>Encerra o trace</span><span>{number(node.endFrequency)}</span></div>
+              </>
+            ) : (
+              <>
+                <div className="readout"><span>Duração média</span><strong>{duration(node.meanDurationSeconds)}</strong></div>
+                <div className="stat-row"><span>Duração total</span><span>{duration(node.totalDurationSeconds)}</span></div>
+                <div className="stat-row"><span>Duração mediana</span><span>{duration(node.medianDurationSeconds)}</span></div>
+                <div className="stat-row"><span>Duração mínima</span><span>{duration(node.minDurationSeconds)}</span></div>
+                <div className="stat-row"><span>Duração máxima</span><span>{duration(node.maxDurationSeconds)}</span></div>
+                {node.histogram.length > 0 && (
+                  <div className="histogram">
+                    <span className="field-label">Distribuição da duração</span>
+                    <div className="histogram-bars">
+                      {node.histogram.map((v, i) => <span key={i} title={`${v} ocorrências`} style={{ height: `${Math.max(4, (v / max) * 100)}%`, opacity: 0.35 + (v / max) * 0.65 }} />)}
+                    </div>
+                    <div className="legend-ends"><span>{duration(node.minDurationSeconds)}</span><span>{duration(node.maxDurationSeconds)}</span></div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <div className="board-foot">
+            <button type="button" className="btn btn-sm" onClick={onAnalyse}><ScanLine size={14} />Analisar desvios desta atividade</button>
+          </div>
+        </>
+      )}
+    </section>
   )
 }
