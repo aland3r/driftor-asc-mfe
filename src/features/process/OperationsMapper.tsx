@@ -7,7 +7,8 @@ import './mapping.css'
 /*
   Mapeamento evento → atividade, portado do modal de log do Deviante:
   - evento: rótulo bruto do log, só leitura;
-  - atividade: nome editável (lápis) com descrição opcional, validada no check;
+  - atividade: clicar no quadro edita o nome (o lápis só aparece no hover, como dica), validada no check;
+  - a descrição do catálogo acompanha a atividade ao salvar, mas não aparece aqui: a tela mostra só o necessário;
   - concluir só com todas as linhas validadas.
 */
 
@@ -53,11 +54,16 @@ export function OperationsMapper({ rows, setRows, catalog }: {
   const settle = (r: MappingRow): MappingRow => ({ ...r, state: r.activity.trim() ? 'suggested' : 'pending' })
   const update = (i: number, patch: Partial<MappingRow>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
 
+  // a descrição é a da atividade escolhida no catálogo; uma atividade nova começa sem descrição
+  const describe = (name: string) => catalog.find((a) => key(a.name) === key(name))?.description ?? ''
+
   function edit(i: number) {
-    setRows((rs) => rs.map((r, j) => {
-      if (j === i) return r.state === 'editing' ? settle(r) : { ...r, state: 'editing' }
-      return r.state === 'editing' ? settle(r) : r
-    }))
+    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, state: 'editing' } : r.state === 'editing' ? settle(r) : r)))
+  }
+
+  /** Sai da edição ao perder o foco. Se a linha já foi validada nesse meio tempo, fica como está. */
+  function close(i: number) {
+    setRows((rs) => rs.map((r, j) => (j === i && r.state === 'editing' ? settle(r) : r)))
   }
 
   function validate(i: number) {
@@ -69,8 +75,7 @@ export function OperationsMapper({ rows, setRows, catalog }: {
   }
 
   function pick(i: number, name: string) {
-    const known = catalog.find((a) => key(a.name) === key(name))
-    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, activity: name, description: r.description || known?.description || '' } : r)))
+    setRows((rs) => rs.map((r, j) => (j === i ? settle({ ...r, activity: name, description: describe(name) }) : r)))
   }
 
   return (
@@ -90,10 +95,10 @@ export function OperationsMapper({ rows, setRows, catalog }: {
             <ActivityCard
               row={row}
               catalog={catalog}
-              onName={(activity) => update(i, { activity })}
+              onName={(activity) => update(i, { activity, description: describe(activity) })}
               onPick={(name) => pick(i, name)}
-              onDescription={(description) => update(i, { description })}
               onEdit={() => edit(i)}
+              onClose={() => close(i)}
               onValidate={() => validate(i)}
             />
             <MappingStatus state={row.state} />
@@ -118,13 +123,13 @@ function EventCell({ op }: { op: Operation }) {
   )
 }
 
-function ActivityCard({ row, catalog, onName, onPick, onDescription, onEdit, onValidate }: {
+function ActivityCard({ row, catalog, onName, onPick, onEdit, onClose, onValidate }: {
   row: MappingRow
   catalog: CatalogEntry[]
   onName: (name: string) => void
   onPick: (name: string) => void
-  onDescription: (description: string) => void
   onEdit: () => void
+  onClose: () => void
   onValidate: () => void
 }) {
   const editing = row.state === 'editing'
@@ -158,19 +163,19 @@ function ActivityCard({ row, catalog, onName, onPick, onDescription, onEdit, onV
                 aria-label={`Atividade para o evento ${row.rawLabel}`}
                 placeholder="Nome da atividade…"
                 onChange={(e) => { onName(e.target.value); setTyped(true); setOpen(true) }}
-                onBlur={() => setTimeout(() => setOpen(false), 150)}
+                onBlur={() => { setOpen(false); onClose() }}
                 onKeyDown={(e) => { if (e.key === 'Enter') onValidate() }}
               />
               {open && (filtered.length > 0 || canCreate) && (
                 <div className="activity-options" role="listbox">
                   {filtered.map((a) => (
-                    <button type="button" key={a.id} role="option" aria-selected={false} onMouseDown={(e) => { e.preventDefault(); onPick(a.name); setOpen(false) }}>
+                    <button type="button" key={a.id} role="option" aria-selected={false} onMouseDown={(e) => { e.preventDefault(); onPick(a.name) }}>
                       <span className="option-name">{a.name}</span>
                       <span className={`option-tag ${a.inProcess ? 'in-process' : ''}`}>{a.inProcess ? 'neste processo' : 'catálogo'}</span>
                     </button>
                   ))}
                   {canCreate && (
-                    <button type="button" className="create" onMouseDown={(e) => { e.preventDefault(); onPick(row.activity.trim()); setOpen(false) }}>
+                    <button type="button" className="create" onMouseDown={(e) => { e.preventDefault(); onPick(row.activity.trim()) }}>
                       <Plus size={12} />Criar atividade “{row.activity.trim()}”
                     </button>
                   )}
@@ -178,23 +183,14 @@ function ActivityCard({ row, catalog, onName, onPick, onDescription, onEdit, onV
               )}
             </div>
           ) : (
-            <p className={`activity-name ${validated ? 'is-valid' : ''}`}>{row.activity || <span className="placeholder">Nome da atividade…</span>}</p>
+            <button type="button" className="activity-pick" onClick={onEdit} aria-label={`Editar atividade${row.activity ? ` ${row.activity}` : ''}`}>
+              <span className={`activity-name ${validated ? 'is-valid' : ''}`}>{row.activity || <span className="placeholder">Nome da atividade…</span>}</span>
+              <Pencil size={12} aria-hidden="true" />
+            </button>
           )}
-          <input
-            className="activity-description"
-            value={row.description}
-            onChange={(e) => onDescription(e.target.value)}
-            disabled={validated}
-            placeholder="Descrição opcional"
-            maxLength={280}
-            aria-label={`Descrição da atividade para ${row.rawLabel}`}
-          />
         </div>
       </div>
-      <div className="activity-card-actions">
-        <button type="button" className={`circle ${editing ? 'active' : ''}`} onClick={onEdit} aria-label="Editar atividade" aria-pressed={editing} title="Editar atividade"><Pencil size={12} /></button>
-        <button type="button" className={`circle ${validated ? 'ok' : ''}`} onClick={onValidate} aria-label="Validar atividade" aria-pressed={validated} title="Validar atividade"><Check size={12} /></button>
-      </div>
+      <button type="button" className={`circle ${validated ? 'ok' : ''}`} onClick={onValidate} aria-label="Validar atividade" aria-pressed={validated} title="Validar atividade"><Check size={12} /></button>
     </div>
   )
 }

@@ -20,12 +20,17 @@
 .activity-card.state-validated .activity-card-bar { background: rgba(16,185,129,0.7); }
 .activity-card-body { padding: 7px 10px 8px; }
 .activity-name-edit { position: relative; }
-.activity-name { display: block; width: 100%; margin: 0 0 3px; padding: 0; border: 0; outline: none; background: transparent; font-size: var(--fs-sm); font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-name { display: block; width: 100%; margin: 0; padding: 0; border: 0; outline: none; background: transparent; font-size: var(--fs-sm); font-weight: 500; line-height: 1.4; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-name.is-valid { color: #6ee7b7; }
 .activity-name .placeholder { color: var(--text-dim); font-weight: 400; }
-.activity-description { display: block; width: 100%; padding: 0; border: 0; outline: none; background: transparent; font-family: var(--mono); font-size: var(--fs-xs); color: var(--text-muted); }
-.activity-description::placeholder { color: var(--text-dim); }
-.activity-description:disabled { cursor: default; opacity: 1; }
+/* o quadro inteiro é o campo: clicar edita, e o lápis aparece no hover só como dica */
+.activity-pick { display: flex; align-items: center; gap: 8px; width: 100%; padding: 0; border: 0; background: transparent; text-align: left; cursor: text; }
+.activity-pick::after { content: ''; position: absolute; inset: 0; border-radius: 6px; }
+.activity-pick .activity-name { flex: 1; min-width: 0; }
+.activity-pick svg { flex-shrink: 0; color: var(--text-dim); opacity: 0; transition: opacity .14s; }
+.activity-card:hover .activity-pick svg, .activity-pick:focus-visible svg { opacity: 1; }
+.activity-card.state-suggested:hover { border-color: rgba(255,255,255,0.26); }
+@media (hover: none) { .activity-pick svg { opacity: .7; } }
 .activity-options { position: absolute; z-index: 20; left: -11px; right: -11px; top: calc(100% + 6px); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 6px; box-shadow: 0 10px 28px rgba(0,0,0,0.45); max-height: 264px; overflow-y: auto; }
 .activity-options button { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 12px; border: 0; background: transparent; text-align: left; font-size: var(--fs-sm); color: var(--text); }
 .activity-options button:hover { background: rgba(255,255,255,0.06); }
@@ -33,7 +38,6 @@
 .activity-options .option-tag { flex-shrink: 0; font-family: var(--mono); font-size: var(--fs-xs); color: var(--text-dim); }
 .activity-options .option-tag.in-process { color: var(--accent-text); }
 .activity-options .create { justify-content: flex-start; gap: 6px; color: var(--accent-text); border-top: 1px solid var(--line); }
-.activity-card-actions { display: flex; flex-direction: column; gap: 6px; }
 .circle { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line-strong); background: rgba(255,255,255,0.04); color: var(--text-muted); transition: all .14s; }
 .circle:hover { color: var(--text); border-color: rgba(255,255,255,0.28); }
 .circle.active { color: var(--text); background: rgba(77,143,192,0.2); border-color: rgba(77,143,192,0.6); }
