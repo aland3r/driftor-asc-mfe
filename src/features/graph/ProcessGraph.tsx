@@ -3,11 +3,13 @@ import { Maximize2, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import type { GraphEdge, GraphNode } from '../../api/types'
 import { duration, number } from '../../lib/format'
 import {
-  CIRC_R, GRAD_DEEP, GRAD_LIGHT, GRAD_MID, NODE_H, NODE_W,
+  CIRC_R, END_ID, GRAD_DEEP, GRAD_LIGHT, GRAD_MID, NODE_H, NODE_W, START_ID,
   arrowPath, bounds, curvePath, edgeCurve, freqHalfW, freqOpacity, hitTest, layoutGraph,
   type LaidNode, type Layout,
 } from './geometry'
 import './graph.css'
+
+const ENDPOINT_STROKE = 'rgba(200,226,245,0.55)'
 
 /** Grafo de sequência direta do processo: arrastar move, roda do mouse aproxima, clique seleciona. */
 export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: {
@@ -103,6 +105,9 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
           <pattern id="graph-dots" width="24" height="24" patternUnits="userSpaceOnUse">
             <circle cx="1" cy="1" r="1" fill="rgba(255,255,255,0.09)" />
           </pattern>
+          <marker id="arrow-endpoint" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+            <path d="M 0 1 L 8 4 L 0 7 Z" fill={ENDPOINT_STROKE} />
+          </marker>
           <marker id="arrow-back" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto">
             <path d="M 0 1 L 8 4 L 0 7 Z" fill={GRAD_MID} />
           </marker>
@@ -119,6 +124,15 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
             const label = number(edge.frequency)
             const labelW = Math.max(40, label.length * 8 + 16)
             const labelAlpha = dimmed ? 0.35 : 0.7 + edge.share * 0.3
+            if (edge.source === START_ID || edge.target === END_ID) {
+              // Início e fim não são atividades: ligação pontilhada e fina, como no Disco, sem espessura por frequência
+              return (
+                <g key={edge.id}>
+                  <path d={curvePath(c)} fill="none" stroke={ENDPOINT_STROKE} opacity={dimmed ? 0.3 : 1} strokeWidth={1.4} strokeDasharray="4 4" strokeLinecap="round" markerEnd="url(#arrow-endpoint)" />
+                  <EdgeLabel x={c.mid.x} y={c.mid.y} w={labelW} text={label} alpha={dimmed ? 0.35 : 0.8} />
+                </g>
+              )
+            }
             if (edge.isSelf || edge.isBack) {
               return (
                 <g key={edge.id}>

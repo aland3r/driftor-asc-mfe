@@ -106,7 +106,8 @@ export function layoutGraph(nodes: GraphNode[], edges: GraphEdge[], layout: Layo
     laid.push({ id: n.id, label: n.label, kind: 'activity', ...at(n.id, NODE_W, NODE_H), share: n.frequency / maxNode, node: n })
   }
   const byId = new Map(laid.map((n) => [n.id, n]))
-  const maxEdge = Math.max(1, ...edges.map((e) => e.frequency))
+  // a espessura compara só as transições entre atividades; as ligações com início e fim são pontilhadas
+  const maxEdge = Math.max(1, ...edges.filter((e) => e.source !== START_ID && e.target !== END_ID).map((e) => e.frequency))
   const laidEdges: LaidEdge[] = edges
     .filter((e) => byId.has(e.source) && byId.has(e.target))
     .map((e) => {
