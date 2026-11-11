@@ -130,12 +130,17 @@ function ActivityCard({ row, catalog, onName, onPick, onDescription, onEdit, onV
   const editing = row.state === 'editing'
   const validated = row.state === 'validated'
   const [open, setOpen] = useState(false)
+  const [typed, setTyped] = useState(false)
   const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => { if (editing) { ref.current?.focus(); setOpen(true) } else setOpen(false) }, [editing])
+  useEffect(() => { setTyped(false); if (editing) { ref.current?.focus(); ref.current?.select(); setOpen(true) } else setOpen(false) }, [editing])
 
+  // Ao abrir a edição, o catálogo inteiro aparece; depois de digitar, a lista filtra pelo texto.
   const q = key(row.activity)
-  const filtered = useMemo(() => catalog.filter((a) => key(a.name).includes(q) && key(a.name) !== q).slice(0, 6), [catalog, q])
-  const canCreate = q.length > 0 && !catalog.some((a) => key(a.name) === q)
+  const filtered = useMemo(
+    () => catalog.filter((a) => key(a.name) !== q && (!typed || key(a.name).includes(q))).slice(0, 8),
+    [catalog, q, typed],
+  )
+  const canCreate = typed && q.length > 0 && !catalog.some((a) => key(a.name) === q)
 
   return (
     <div className="activity-card-wrap">
@@ -150,7 +155,7 @@ function ActivityCard({ row, catalog, onName, onPick, onDescription, onEdit, onV
                 value={row.activity}
                 aria-label={`Atividade para o evento ${row.rawLabel}`}
                 placeholder="Nome da atividade…"
-                onChange={(e) => { onName(e.target.value); setOpen(true) }}
+                onChange={(e) => { onName(e.target.value); setTyped(true); setOpen(true) }}
                 onBlur={() => setTimeout(() => setOpen(false), 150)}
                 onKeyDown={(e) => { if (e.key === 'Enter') onValidate() }}
               />
