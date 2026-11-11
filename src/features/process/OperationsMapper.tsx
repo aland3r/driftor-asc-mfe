@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Check, Pencil, Plus } from 'lucide-react'
 import type { Activity, Operation } from '../../api/types'
-import { duration, number } from '../../lib/format'
 import './mapping.css'
 
 /*
   Mapeamento evento → atividade, portado do modal de log do Deviante:
-  - evento: rótulo bruto do log, só leitura;
+  - evento: só o rótulo bruto do log, sem contagens: os números aparecem no grafo, depois do mapeamento;
   - atividade: clicar no quadro edita o nome (o lápis só aparece no hover, como dica), validada no check;
   - a descrição do catálogo acompanha a atividade ao salvar, mas não aparece aqui: a tela mostra só o necessário;
   - concluir só com todas as linhas validadas.
@@ -110,17 +109,7 @@ export function OperationsMapper({ rows, setRows, catalog }: {
 }
 
 function EventCell({ op }: { op: Operation }) {
-  const plural = (n: number, one: string, many: string) => `${number(n)} ${n === 1 ? one : many}`
-  return (
-    <div className="mapper-event">
-      <p className="mono" title={op.rawLabel}>{op.rawLabel}</p>
-      <p className="mapper-meta">
-        {plural(op.occurrenceCount, 'ocorrência', 'ocorrências')}
-        {op.caseCount > 0 && ` · ${plural(op.caseCount, 'traço', 'traços')}`}
-        {op.meanDurationSeconds > 0 && ` · ${duration(op.meanDurationSeconds)} em média`}
-      </p>
-    </div>
-  )
+  return <p className="mapper-event mono" title={op.rawLabel}>{op.rawLabel}</p>
 }
 
 function ActivityCard({ row, catalog, onName, onPick, onEdit, onClose, onValidate }: {

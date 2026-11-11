@@ -6,10 +6,7 @@
 .mapper-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .mapper-row { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
 .mapper-status { justify-self: end; }
-.mapper-event { min-width: 0; }
-.mapper-event p { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mapper-event .mono { font-family: var(--mono); font-size: var(--fs-sm); color: var(--text); margin-bottom: 2px; }
-.mapper-event .mapper-meta { font-family: var(--mono); font-size: var(--fs-xs); color: var(--text-dim); white-space: normal; }
+.mapper-event { min-width: 0; margin: 0; font-family: var(--mono); font-size: var(--fs-sm); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mapper-arrow { color: var(--accent-text); justify-self: center; }
 .activity-card-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .activity-card { flex: 1; min-width: 0; position: relative; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; transition: border-color .15s; }
@@ -18,8 +15,9 @@
 .activity-card.state-editing { border-color: rgba(77,143,192,0.7); }
 .activity-card-bar { height: 3px; border-radius: 6px 6px 0 0; background: rgba(77,143,192,0.6); transition: background .2s; }
 .activity-card.state-validated .activity-card-bar { background: rgba(16,185,129,0.7); }
-.activity-card-body { padding: 7px 10px 8px; }
-.activity-name-edit { position: relative; }
+/* o quadro mantém a altura de sempre, agora só com o nome, centralizado */
+.activity-card-body { min-height: 53px; padding: 7px 10px 8px; display: flex; align-items: center; }
+.activity-name-edit { position: relative; flex: 1; min-width: 0; }
 .activity-name { display: block; width: 100%; margin: 0; padding: 0; border: 0; outline: none; background: transparent; font-size: var(--fs-sm); font-weight: 500; line-height: 1.4; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-name.is-valid { color: #6ee7b7; }
 .activity-name .placeholder { color: var(--text-dim); font-weight: 400; }
