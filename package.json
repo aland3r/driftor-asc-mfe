@@ -12,7 +12,6 @@
     "test:arch": "depcruise src --config .dependency-cruiser.cjs"
   },
   "dependencies": {
-    "@dagrejs/dagre": "1.1.4",
     "lucide-react": "0.474.0",
     "mermaid": "12.1.0",
     "react": "19.2.7",

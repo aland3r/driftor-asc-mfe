@@ -3,8 +3,8 @@ import { Maximize2, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import type { GraphEdge, GraphNode } from '../../api/types'
 import { duration, number } from '../../lib/format'
 import {
-  CIRC_R, END_ID, GRAD_DEEP, GRAD_LIGHT, GRAD_MID, NODE_H, NODE_W, START_ID,
-  arrowPath, bounds, curvePath, edgeCurve, freqHalfW, freqOpacity, hitTest, layoutGraph,
+  CIRC_R, GRAD_DEEP, GRAD_LIGHT, GRAD_MID, NODE_H, NODE_W,
+  arrowPath, bounds, curvePath, freqHalfW, freqOpacity, hitTest, layoutGraph,
   type LaidNode, type Layout,
 } from './geometry'
 import './graph.css'
@@ -30,7 +30,7 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
     const el = svgRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
-    const b = bounds(laid.nodes)
+    const b = bounds(laid.nodes, laid.edges)
     const k = Math.min(1.1, Math.max(0.25, Math.min((r.width - 40) / (b.maxX - b.minX), (r.height - 40) / (b.maxY - b.minY))))
     setView({ k, x: (r.width - (b.maxX - b.minX) * k) / 2 - b.minX * k, y: Math.max(20, (r.height - (b.maxY - b.minY) * k) / 2) - b.minY * k })
   }, [laid])
@@ -85,10 +85,6 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
     }
   }
 
-  const byId = useMemo(() => new Map(laid.nodes.map((n) => [n.id, n])), [laid])
-  const backLanes = new Map<string, number>()
-  let backCount = 0
-
   return (
     <div className="graph">
       <svg
@@ -115,16 +111,13 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
         <rect width="100%" height="100%" fill="url(#graph-dots)" />
         <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
           {laid.edges.map((edge) => {
-            const src = byId.get(edge.source)!
-            const tgt = byId.get(edge.target)!
-            const lane = edge.isBack ? (backLanes.get(edge.id) ?? backLanes.set(edge.id, backCount++).get(edge.id)!) % 4 : 0
-            const c = edgeCurve(src, tgt, layout, edge.isBack, lane, edge.bypass)
+            const c = edge.curve
             const dimmed = highlight && !(highlight.has(edge.source) && highlight.has(edge.target))
             const opacity = freqOpacity(edge.share) * (dimmed ? 0.25 : 1)
             const label = number(edge.frequency)
             const labelW = Math.max(40, label.length * 8 + 16)
             const labelAlpha = dimmed ? 0.35 : 0.7 + edge.share * 0.3
-            if (edge.source === START_ID || edge.target === END_ID) {
+            if (edge.isEndpoint) {
               // Início e fim não são atividades: ligação pontilhada e fina, como no Disco, sem espessura por frequência
               return (
                 <g key={edge.id}>
@@ -133,7 +126,7 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
                 </g>
               )
             }
-            if (edge.isSelf || edge.isBack) {
+            if (edge.isSelf) {
               return (
                 <g key={edge.id}>
                   <path d={curvePath(c)} fill="none" stroke={GRAD_MID} opacity={opacity * 0.85} strokeWidth={Math.max(1.4, freqHalfW(edge.share) * 0.5)} markerEnd="url(#arrow-back)" />
