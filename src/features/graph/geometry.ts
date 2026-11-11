@@ -484,6 +484,10 @@ function cubicTang(p0: Pt, p1: Pt, p2: Pt, p3: Pt, t: number): Pt {
 export const GRAD_LIGHT = '#c8e2f5'
 export const GRAD_MID = '#4d8fc0'
 export const GRAD_DEEP = '#2870a8'
+// caminhos em tom neutro, do cinza na origem ao claro na ponta: o azul fica só para as atividades
+export const PATH_FROM = '#5d6b7e'
+export const PATH_MID = '#93a1b4'
+export const PATH_TO = '#dbe3ec'
 export const freqOpacity = (f: number) => 0.5 + f * 0.5
 
 // raiz quadrada: num log real, caminhos de dezenas de casos não somem ao lado de um de milhares

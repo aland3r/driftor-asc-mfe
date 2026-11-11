@@ -3,7 +3,7 @@ import { Maximize2, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import type { GraphEdge, GraphNode } from '../../api/types'
 import { number } from '../../lib/format'
 import {
-  CIRC_R, GRAD_DEEP, GRAD_LIGHT, GRAD_MID, NODE_H, NODE_W,
+  CIRC_R, NODE_H, NODE_W, PATH_FROM, PATH_MID, PATH_TO,
   CARD_ACCENT, CARD_BASE, activityGlow, activityStripe, arrowPath, bounds, curvePath, freqHalfW, freqOpacity, hitTest, layoutGraph,
   type LaidNode, type Layout,
 } from './geometry'
@@ -110,7 +110,7 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
             <path d="M 0 1 L 8 4 L 0 7 Z" fill={ENDPOINT_STROKE} />
           </marker>
           <marker id="arrow-back" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto">
-            <path d="M 0 1 L 8 4 L 0 7 Z" fill={GRAD_MID} />
+            <path d="M 0 1 L 8 4 L 0 7 Z" fill={PATH_MID} />
           </marker>
         </defs>
         <rect width="100%" height="100%" fill="url(#graph-dots)" />
@@ -134,7 +134,7 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
             if (edge.isSelf) {
               return (
                 <g key={edge.id}>
-                  <path d={curvePath(c)} fill="none" stroke={GRAD_MID} opacity={opacity * 0.85} strokeWidth={Math.max(1.4, freqHalfW(edge.share) * 0.5)} markerEnd="url(#arrow-back)" />
+                  <path d={curvePath(c)} fill="none" stroke={PATH_MID} opacity={opacity * 0.85} strokeWidth={Math.max(1.4, freqHalfW(edge.share) * 0.5)} markerEnd="url(#arrow-back)" />
                   <EdgeLabel x={c.mid.x} y={c.mid.y} w={labelW} text={label} alpha={labelAlpha} />
                 </g>
               )
@@ -144,9 +144,9 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
               <g key={edge.id}>
                 <defs>
                   <linearGradient id={gid} x1={c.p0.x} y1={c.p0.y} x2={c.p3.x} y2={c.p3.y} gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor={GRAD_LIGHT} />
-                    <stop offset="55%" stopColor={GRAD_MID} />
-                    <stop offset="100%" stopColor={GRAD_DEEP} />
+                    <stop offset="0%" stopColor={PATH_FROM} />
+                    <stop offset="55%" stopColor={PATH_MID} />
+                    <stop offset="100%" stopColor={PATH_TO} />
                   </linearGradient>
                 </defs>
                 <path d={arrowPath(c, freqHalfW(edge.share))} fill={`url(#${gid})`} opacity={opacity} />
@@ -188,8 +188,8 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
 function EdgeLabel({ x, y, w, text, alpha }: { x: number; y: number; w: number; text: string; alpha: number }) {
   return (
     <g transform={`translate(${x},${y})`}>
-      <rect x={-w / 2} y={-11} width={w} height={22} rx={4} fill="rgba(20,28,40,0.92)" stroke="rgba(77,143,192,0.18)" strokeWidth={0.8} />
-      <text x={0} y={1} textAnchor="middle" dominantBaseline="middle" fontSize={12} fontFamily="'JetBrains Mono',monospace" fill={`rgba(160,205,235,${alpha.toFixed(2)})`}>{text}</text>
+      <rect x={-w / 2} y={-11} width={w} height={22} rx={4} fill="rgba(20,28,40,0.92)" stroke="rgba(203,213,225,0.16)" strokeWidth={0.8} />
+      <text x={0} y={1} textAnchor="middle" dominantBaseline="middle" fontSize={12} fontFamily="'JetBrains Mono',monospace" fill={`rgba(214,224,235,${alpha.toFixed(2)})`}>{text}</text>
     </g>
   )
 }

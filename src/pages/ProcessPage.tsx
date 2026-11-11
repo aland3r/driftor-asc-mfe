@@ -9,7 +9,7 @@ import { ConfirmDelete } from '../components/Modal'
 import { Slider } from '../components/Slider'
 import { TraceList, type TraceGroup } from '../components/TraceList'
 import { ProcessGraph } from '../features/graph/ProcessGraph'
-import { END_ID, GRAD_DEEP, GRAD_LIGHT, GRAD_MID, START_ID, activityStripe, filterByDensity, freqHalfW, freqOpacity } from '../features/graph/geometry'
+import { END_ID, GRAD_DEEP, GRAD_LIGHT, PATH_FROM, PATH_TO, START_ID, filterByDensity, freqOpacity } from '../features/graph/geometry'
 import { NewAnalysisModal } from '../features/analysis/NewAnalysisModal'
 import { EventLogModal } from '../features/process/EventLogModal'
 import { duration, number } from '../lib/format'
@@ -249,38 +249,19 @@ function EmptyCanvas({ process, onUpload, onResume }: { process: Process; onUplo
   )
 }
 
-/** Funil deitado, como a legenda do Disco: estreito na ponta rara, largo na frequente. */
-function Funnel({ id, from, to, stops }: { id: string; from: number; to: number; stops: { color: string; opacity?: number }[] }) {
-  return (
-    <svg className="funnel" viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
-      <defs>
-        <linearGradient id={id} x1="0" x2="1" y1="0" y2="0">
-          {stops.map((st, i) => <stop key={i} offset={`${(i / (stops.length - 1)) * 100}%`} stopColor={st.color} stopOpacity={st.opacity ?? 1} />)}
-        </linearGradient>
-      </defs>
-      <polygon points={`0,${10 - from} 100,${10 - to} 100,${10 + to} 0,${10 + from}`} fill={`url(#${id})`} />
-    </svg>
-  )
-}
+const SCALE_STEPS = [0.1, 0.3, 0.5, 0.75, 1]
+const SCALE_HEIGHTS = [3, 5, 8, 12, 18]
 
-/** Legenda das duas escalas de frequência absoluta: a faixa dos cards e a espessura das setas. */
+/** Legenda das duas escalas de frequência absoluta, nas cores do grafo: azul nas atividades, cinza nos caminhos. */
 function FrequencyScales({ activity, path }: { activity: [number, number]; path: [number, number] }) {
-  const low = (range: [number, number]) => range[0] / Math.max(1, range[1])
+  const bars = (background: string, opacity: (f: number) => number) =>
+    SCALE_STEPS.map((f, i) => <span key={f} style={{ height: SCALE_HEIGHTS[i], opacity: opacity(f), background }} />)
   return (
     <div className="scales">
-      <span>Atividades</span>
-      <span className="scale-end">{number(activity[0])}</span>
-      <Funnel id="scale-activities" from={2} to={9} stops={[{ color: activityStripe(low(activity)) }, { color: activityStripe(1) }]} />
-      <span className="scale-end">{number(activity[1])}</span>
-      <span>Caminhos</span>
-      <span className="scale-end">{number(path[0])}</span>
-      <Funnel
-        id="scale-paths"
-        from={Math.max(1, freqHalfW(low(path)) * 0.85)}
-        to={freqHalfW(1) * 0.85}
-        stops={[{ color: GRAD_LIGHT, opacity: freqOpacity(low(path)) }, { color: GRAD_MID, opacity: 0.85 }, { color: GRAD_DEEP }]}
-      />
-      <span className="scale-end">{number(path[1])}</span>
+      <div className="scale-ends"><span>{number(activity[0])}</span><span>atividades</span><span>{number(activity[1])}</span></div>
+      <div className="scale-bars scale-up" aria-hidden="true">{bars(`linear-gradient(90deg, ${GRAD_LIGHT}, ${GRAD_DEEP})`, (f) => 0.3 + f * 0.7)}</div>
+      <div className="scale-bars scale-down" aria-hidden="true">{bars(`linear-gradient(90deg, ${PATH_FROM}, ${PATH_TO})`, freqOpacity)}</div>
+      <div className="scale-ends"><span>{number(path[0])}</span><span>caminhos</span><span>{number(path[1])}</span></div>
     </div>
   )
 }
