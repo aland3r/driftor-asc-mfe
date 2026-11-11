@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GraphEdge, GraphNode } from '../src/api/types'
-import { CIRC_R, END_ID, NODE_W, START_ID, filterByDensity, layoutGraph } from '../src/features/graph/geometry'
+import { CIRC_R, END_ID, NODE_W, START_ID, filterByDensity, layoutGraph, wrapLabel } from '../src/features/graph/geometry'
 
 const node = (id: string, frequency: number, start = 0, end = 0): GraphNode => ({
   id, label: id, frequency, caseFrequency: frequency, startFrequency: start, endFrequency: end, maxRepetitions: 1,
@@ -95,5 +95,19 @@ describe('grafo do processo', () => {
       .sort((x, y) => x - y)
     expect(angles).toHaveLength(4)
     for (let i = 1; i < angles.length; i++) expect(angles[i] - angles[i - 1]).toBeGreaterThan(20)
+  })
+  it('o nome longo da atividade quebra em duas linhas, por palavra, em vez de ser cortado', () => {
+    expect(wrapLabel('Medição')).toEqual(['Medição'])
+    expect(wrapLabel('Descarregamento de produto acabado')).toEqual(['Descarregamento de', 'produto acabado'])
+    const long = wrapLabel('Inspeção dimensional completa do lote de peças usinadas')
+    expect(long).toHaveLength(2)
+    expect(long[1].endsWith('…')).toBe(true)
+    expect(Math.max(...long.map((l) => l.length))).toBeLessThanOrEqual(22)
+  })
+  it('o número da seta grossa fica antes do meio, longe da ponta', () => {
+    const f = filterByDensity(nodes, edges, 100, 100)
+    const laid = layoutGraph(f.nodes, f.edges, 'vertical')
+    const main = laid.edges.find((e) => e.source === 'Carregar' && e.target === 'Operar')!
+    expect(main.curve.mid.y).toBeLessThan((main.curve.p0.y + main.curve.p3.y) / 2 - 8)
   })
 })

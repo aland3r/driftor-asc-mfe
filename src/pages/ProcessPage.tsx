@@ -9,7 +9,7 @@ import { ConfirmDelete } from '../components/Modal'
 import { Slider } from '../components/Slider'
 import { TraceList, type TraceGroup } from '../components/TraceList'
 import { ProcessGraph } from '../features/graph/ProcessGraph'
-import { END_ID, GRAD_DEEP, GRAD_LIGHT, PATH_FROM, PATH_TO, START_ID, filterByDensity, freqOpacity } from '../features/graph/geometry'
+import { END_ID, START_ID, activityColors, filterByDensity, pathColors } from '../features/graph/geometry'
 import { NewAnalysisModal } from '../features/analysis/NewAnalysisModal'
 import { EventLogModal } from '../features/process/EventLogModal'
 import { duration, number } from '../lib/format'
@@ -249,18 +249,19 @@ function EmptyCanvas({ process, onUpload, onResume }: { process: Process; onUplo
   )
 }
 
-const SCALE_STEPS = [0.1, 0.3, 0.5, 0.75, 1]
+const SCALE_STEPS = [0, 0.25, 0.5, 0.75, 1]
 const SCALE_HEIGHTS = [3, 5, 8, 12, 18]
 
 /** Legenda das duas escalas de frequência absoluta, nas cores do grafo: azul nas atividades, cinza nos caminhos. */
 function FrequencyScales({ activity, path }: { activity: [number, number]; path: [number, number] }) {
-  const bars = (background: string, opacity: (f: number) => number) =>
-    SCALE_STEPS.map((f, i) => <span key={f} style={{ height: SCALE_HEIGHTS[i], opacity: opacity(f), background }} />)
+  // cada barra usa a cor que aquele nível de frequência tem no grafo
+  const bars = (background: (f: number) => string) =>
+    SCALE_STEPS.map((f, i) => <span key={f} style={{ height: SCALE_HEIGHTS[i], background: background(f) }} />)
   return (
     <div className="scales">
       <div className="scale-ends"><span>{number(activity[0])}</span><span>atividades</span><span>{number(activity[1])}</span></div>
-      <div className="scale-bars scale-up" aria-hidden="true">{bars(`linear-gradient(90deg, ${GRAD_LIGHT}, ${GRAD_DEEP})`, (f) => 0.3 + f * 0.7)}</div>
-      <div className="scale-bars scale-down" aria-hidden="true">{bars(`linear-gradient(90deg, ${PATH_FROM}, ${PATH_TO})`, freqOpacity)}</div>
+      <div className="scale-bars scale-up" aria-hidden="true">{bars((f) => `linear-gradient(90deg, ${activityColors(f).light}, ${activityColors(f).deep})`)}</div>
+      <div className="scale-bars scale-down" aria-hidden="true">{bars((f) => `linear-gradient(90deg, ${pathColors(f).to}, ${pathColors(f).from})`)}</div>
       <div className="scale-ends"><span>{number(path[0])}</span><span>caminhos</span><span>{number(path[1])}</span></div>
     </div>
   )

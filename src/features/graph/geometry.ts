@@ -154,10 +154,13 @@ export function layoutGraph(nodes: GraphNode[], edges: GraphEdge[], layout: Layo
   const laidEdges: LaidEdge[] = [
     ...wires.map((w) => {
       const [p0, p1, p2, p3] = wireShape(w, all).map(toPt)
-      // na curva de canto o rótulo fica perto da origem, onde a seta ainda é fina, e deixa a curva e a ponta à vista
-      const labelAt = w.route.kind === 'elbow' ? 0.24 : 0.5
+      const share = Math.min(1, w.edge.frequency / maxEdge)
+      // o rótulo fica no meio do corpo da seta, sem encostar na ponta: quanto mais grossa a seta, maior a ponta e mais ele recua
+      const head = (headHalfW(freqHalfW(share)) * HEAD_RATIO) / Math.max(1, Math.hypot(p3.x - p0.x, p3.y - p0.y))
+      // na curva de canto ele fica perto da origem, onde a seta ainda é fina, e deixa a curva à vista
+      const labelAt = w.route.kind === 'elbow' ? 0.24 : endpoint(w.edge) ? 0.5 : 0.5 * (1 - Math.min(0.6, head))
       return {
-        id: w.id, source: w.edge.source, target: w.edge.target, frequency: w.edge.frequency, share: Math.min(1, w.edge.frequency / maxEdge),
+        id: w.id, source: w.edge.source, target: w.edge.target, frequency: w.edge.frequency, share,
         isSelf: false, isBack: w.t.a < w.s.a - 1, isEndpoint: endpoint(w.edge), curve: { p0, p1, p2, p3, mid: cubicAt(p0, p1, p2, p3, labelAt) },
       }
     }),
@@ -481,43 +484,41 @@ function cubicTang(p0: Pt, p1: Pt, p2: Pt, p3: Pt, t: number): Pt {
   return norm({ x: 3 * (m * m * (p1.x - p0.x) + 2 * m * t * (p2.x - p1.x) + t * t * (p3.x - p2.x)), y: 3 * (m * m * (p1.y - p0.y) + 2 * m * t * (p2.y - p1.y) + t * t * (p3.y - p2.y)) })
 }
 
-export const GRAD_LIGHT = '#c8e2f5'
-export const GRAD_MID = '#4d8fc0'
-export const GRAD_DEEP = '#2870a8'
-// caminhos em tom neutro, do cinza na origem ao claro na ponta: o azul fica só para as atividades
-export const PATH_FROM = '#5d6b7e'
-export const PATH_MID = '#93a1b4'
-export const PATH_TO = '#dbe3ec'
-export const freqOpacity = (f: number) => 0.5 + f * 0.5
-
 // raiz quadrada: num log real, caminhos de dezenas de casos não somem ao lado de um de milhares
 export const freqHalfW = (f: number) => 1.5 + Math.sqrt(f) * 9.0
 
 /*
- * Frequência da atividade no card (0..1): a faixa do topo clareia e o brilho azul que desce dela
- * ganha força. O card em si continua escuro, como o resto da interface.
+ * Frequência (0..1) por cor, não por transparência: cada nível tem o próprio degradê. No caminho
+ * mais percorrido ele vai do cinza ao branco; no mais raro, do quase preto ao cinza. Nas atividades
+ * é o mesmo em azul. O grafo e a legenda usam estas mesmas funções.
  */
-export const CARD_BASE = '#2b3849'
-export const CARD_ACCENT = '#4d8fc0'
-const STRIPE_LOW = [84, 100, 120]
-const STRIPE_HIGH = [126, 194, 248]
 const mix = (lo: number[], hi: number[], f: number) => `rgb(${lo.map((v, i) => Math.round(v + (hi[i] - v) * clamp(f, 0, 1))).join(',')})`
-export const activityStripe = (f: number) => mix(STRIPE_LOW, STRIPE_HIGH, f)
-export const activityGlow = (f: number) => clamp(f, 0, 1)
+/** Seta: `from` na origem, `to` na ponta. */
+export const pathColors = (f: number) => ({ from: mix([50, 60, 75], [126, 138, 156], f), to: mix([106, 118, 134], [244, 247, 250], f) })
+/** Card: `light` na faixa do topo, `deep` logo abaixo dela e `floor` na base. */
+export const activityColors = (f: number) => ({
+  light: mix([56, 88, 122], [152, 208, 250], f),
+  deep: mix([33, 44, 58], [60, 114, 164], f),
+  floor: mix([29, 38, 51], [41, 58, 80], f),
+})
 
 export function curvePath(c: Curve): string {
   return `M ${c.p0.x},${c.p0.y} C ${c.p1.x},${c.p1.y} ${c.p2.x},${c.p2.y} ${c.p3.x},${c.p3.y}`
 }
 
+/** Meia largura da ponta da seta. Tem um mínimo: num caminho raro ela continua legível. */
+const headHalfW = (baseHW: number) => Math.max(baseHW * 1.8, 6.5)
+/** Comprimento da ponta em relação à meia largura dela. */
+const HEAD_RATIO = 1.7
+
 /** Seta afunilada: quase um ponto na origem, corpo cheio no pescoço e ponta reta com ângulo de ~30°. */
 export function arrowPath(c: Curve, baseHW: number, N = 32): string {
   const START_HW = 0.4
-  // a ponta tem um tamanho mínimo: num caminho raro ela continua legível
-  const headHW = Math.max(baseHW * 1.8, 6.5)
+  const headHW = headHalfW(baseHW)
   const tE = cubicTang(c.p0, c.p1, c.p2, c.p3, 1)
   const nE = perp(tE)
   const span = Math.hypot(c.p3.x - c.p0.x, c.p3.y - c.p0.y)
-  const back = Math.min(headHW * 1.7, span * 0.6)
+  const back = Math.min(headHW * HEAD_RATIO, span * 0.6)
   // o corpo termina no pescoço, já na direção de chegada: a ponta é a continuação reta dele
   const shift = (p: Pt) => ({ x: p.x - tE.x * back, y: p.y - tE.y * back })
   const neck = shift(c.p3)
@@ -559,4 +560,19 @@ export function bounds(nodes: LaidNode[], edges: LaidEdge[] = []) {
 export function hitTest(n: LaidNode, x: number, y: number) {
   if (n.kind !== 'activity') return Math.hypot(x - (n.x + CIRC_R), y - (n.y + CIRC_R)) <= CIRC_R + 6
   return x >= n.x && x <= n.x + NODE_W && y >= n.y && y <= n.y + NODE_H
+}
+
+/** Quebra o nome da atividade em até duas linhas, por palavra; só corta com reticências se ainda assim não couber. */
+export function wrapLabel(text: string, max = 22): string[] {
+  const lines: string[] = []
+  let rest = text.trim()
+  while (rest && lines.length < 2) {
+    if (rest.length <= max) { lines.push(rest); rest = ''; break }
+    const cut = rest.lastIndexOf(' ', max)
+    const at = cut > 0 ? cut : max
+    lines.push(rest.slice(0, at))
+    rest = rest.slice(at).trim()
+  }
+  if (rest) lines[1] = `${lines[1].slice(0, max - 1).trimEnd()}…`
+  return lines
 }

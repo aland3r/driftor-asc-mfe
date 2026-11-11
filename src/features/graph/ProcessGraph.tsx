@@ -3,8 +3,8 @@ import { Maximize2, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import type { GraphEdge, GraphNode } from '../../api/types'
 import { number } from '../../lib/format'
 import {
-  CIRC_R, NODE_H, NODE_W, PATH_FROM, PATH_MID, PATH_TO,
-  CARD_ACCENT, CARD_BASE, activityGlow, activityStripe, arrowPath, bounds, curvePath, freqHalfW, freqOpacity, hitTest, layoutGraph,
+  CIRC_R, NODE_H, NODE_W,
+  activityColors, arrowPath, bounds, curvePath, freqHalfW, hitTest, pathColors, wrapLabel, layoutGraph,
   type LaidNode, type Layout,
 } from './geometry'
 import './graph.css'
@@ -101,16 +101,11 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
           <pattern id="graph-dots" width="24" height="24" patternUnits="userSpaceOnUse">
             <circle cx="1" cy="1" r="1" fill="rgba(255,255,255,0.09)" />
           </pattern>
-          <linearGradient id="card-glow" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={CARD_ACCENT} stopOpacity={0.72} />
-            <stop offset="55%" stopColor={CARD_ACCENT} stopOpacity={0.2} />
-            <stop offset="100%" stopColor={CARD_ACCENT} stopOpacity={0.06} />
-          </linearGradient>
           <marker id="arrow-endpoint" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
             <path d="M 0 1 L 8 4 L 0 7 Z" fill={ENDPOINT_STROKE} />
           </marker>
           <marker id="arrow-back" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto">
-            <path d="M 0 1 L 8 4 L 0 7 Z" fill={PATH_MID} />
+            <path d="M 0 1 L 8 4 L 0 7 Z" fill="context-stroke" />
           </marker>
         </defs>
         <rect width="100%" height="100%" fill="url(#graph-dots)" />
@@ -118,10 +113,11 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
           {laid.edges.map((edge) => {
             const c = edge.curve
             const dimmed = highlight && !(highlight.has(edge.source) && highlight.has(edge.target))
-            const opacity = freqOpacity(edge.share) * (dimmed ? 0.25 : 1)
+            const opacity = dimmed ? 0.25 : 1
+            const tone = pathColors(edge.share)
             const label = number(edge.frequency)
             const labelW = Math.max(40, label.length * 8 + 16)
-            const labelAlpha = dimmed ? 0.35 : 0.7 + edge.share * 0.3
+            const labelAlpha = dimmed ? 0.35 : 0.9
             if (edge.isEndpoint) {
               // Início e fim não são atividades: ligação pontilhada e fina, como no Disco, sem espessura por frequência
               return (
@@ -134,7 +130,7 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
             if (edge.isSelf) {
               return (
                 <g key={edge.id}>
-                  <path d={curvePath(c)} fill="none" stroke={PATH_MID} opacity={opacity * 0.85} strokeWidth={Math.max(1.4, freqHalfW(edge.share) * 0.5)} markerEnd="url(#arrow-back)" />
+                  <path d={curvePath(c)} fill="none" stroke={tone.to} opacity={opacity} strokeWidth={Math.max(1.4, freqHalfW(edge.share) * 0.5)} markerEnd="url(#arrow-back)" />
                   <EdgeLabel x={c.mid.x} y={c.mid.y} w={labelW} text={label} alpha={labelAlpha} />
                 </g>
               )
@@ -144,9 +140,8 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
               <g key={edge.id}>
                 <defs>
                   <linearGradient id={gid} x1={c.p0.x} y1={c.p0.y} x2={c.p3.x} y2={c.p3.y} gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor={PATH_FROM} />
-                    <stop offset="55%" stopColor={PATH_MID} />
-                    <stop offset="100%" stopColor={PATH_TO} />
+                    <stop offset="0%" stopColor={tone.from} />
+                    <stop offset="100%" stopColor={tone.to} />
                   </linearGradient>
                 </defs>
                 <path d={arrowPath(c, freqHalfW(edge.share))} fill={`url(#${gid})`} opacity={opacity} />
@@ -218,18 +213,27 @@ function EndNode() {
 }
 
 function ActivityNode({ node, selected }: { node: LaidNode; selected: boolean }) {
-  const label = node.label.length > 21 ? `${node.label.slice(0, 20)}…` : node.label
+  const lines = wrapLabel(node.label)
+  const two = lines.length > 1
+  // frequência absoluta da atividade por cor: quanto mais executada, mais claro e mais azul o card
+  const tone = activityColors(node.share)
+  const gid = `card-${node.id.replace(/[^a-zA-Z0-9_-]/g, '_')}`
   return (
     <g style={{ cursor: 'pointer' }}>
       <title>{`${node.label}: ${number(node.node!.frequency)} execuções`}</title>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={tone.deep} />
+          <stop offset="100%" stopColor={tone.floor} />
+        </linearGradient>
+      </defs>
       {selected && <rect x={-4} y={-4} width={NODE_W + 8} height={NODE_H + 8} rx={9} fill="rgba(245,158,11,0.08)" stroke="#f59e0b" strokeWidth={1.5} />}
-      {/* frequência absoluta da atividade: a faixa do topo e o brilho que desce dela, na escala da legenda */}
-      <rect width={NODE_W} height={NODE_H} rx={6} fill={CARD_BASE} />
-      <rect width={NODE_W} height={NODE_H} rx={6} fill="url(#card-glow)" opacity={activityGlow(node.share)} />
-      <rect width={NODE_W} height={NODE_H} rx={6} fill="none" stroke={activityStripe(node.share)} strokeOpacity={0.22 + node.share * 0.4} />
-      <rect width={NODE_W} height={3} rx={1.5} fill={activityStripe(node.share)} />
-      <text x={12} y={28} fontSize={13} fontFamily="'Inter',sans-serif" fontWeight={500} fill="#e8eef5">{label}</text>
-      <text x={12} y={48} fontSize={12} fontFamily="'JetBrains Mono',monospace" fill={activityStripe(0.6 + node.share * 0.4)}>{number(node.node!.frequency)}</text>
+      <rect width={NODE_W} height={NODE_H} rx={6} fill={`url(#${gid})`} stroke={tone.light} strokeOpacity={0.38} />
+      <rect width={NODE_W} height={3} rx={1.5} fill={tone.light} />
+      <text x={12} y={two ? 21 : 28} fontSize={13} fontFamily="'Inter',sans-serif" fontWeight={500} fill="#e8eef5">
+        {lines.map((line, i) => <tspan key={i} x={12} dy={i ? 16 : 0}>{line}</tspan>)}
+      </text>
+      <text x={12} y={two ? 54 : 48} fontSize={12} fontFamily="'JetBrains Mono',monospace" fill={activityColors(0.6 + node.share * 0.4).light}>{number(node.node!.frequency)}</text>
     </g>
   )
 }
