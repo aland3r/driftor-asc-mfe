@@ -9,7 +9,7 @@ import { ConfirmDelete } from '../components/Modal'
 import { Slider } from '../components/Slider'
 import { TraceList, type TraceGroup } from '../components/TraceList'
 import { ProcessGraph } from '../features/graph/ProcessGraph'
-import { END_ID, GRAD_DEEP, GRAD_LIGHT, START_ID, activityFill, activityStroke, filterByDensity, freqHalfW, freqOpacity } from '../features/graph/geometry'
+import { END_ID, GRAD_DEEP, GRAD_LIGHT, GRAD_MID, START_ID, activityStripe, filterByDensity, freqHalfW, freqOpacity } from '../features/graph/geometry'
 import { NewAnalysisModal } from '../features/analysis/NewAnalysisModal'
 import { EventLogModal } from '../features/process/EventLogModal'
 import { duration, number } from '../lib/format'
@@ -51,10 +51,13 @@ export function ProcessPage() {
   const filtered = useMemo(() => (graph ? filterByDensity(graph.nodes, graph.edges, actPct, pathPct) : null), [graph, actPct, pathPct])
   const node = graph?.nodes.find((n) => n.id === selected) ?? null
   // as duas escalas do grafo: a atividade mais executada e a transição mais percorrida entre as visíveis
-  const scale = useMemo(() => ({
-    activity: Math.max(1, ...(filtered?.nodes ?? []).map((n) => n.frequency)),
-    path: Math.max(1, ...(filtered?.edges ?? []).filter((e) => e.source !== START_ID && e.target !== END_ID).map((e) => e.frequency)),
-  }), [filtered])
+  const scale = useMemo(() => {
+    const range = (values: number[]): [number, number] => (values.length ? [Math.min(...values), Math.max(...values)] : [0, 1])
+    return {
+      activity: range((filtered?.nodes ?? []).map((n) => n.frequency)),
+      path: range((filtered?.edges ?? []).filter((e) => e.source !== START_ID && e.target !== END_ID).map((e) => e.frequency)),
+    }
+  }, [filtered])
 
   const groups: TraceGroup[] = useMemo(() => {
     if (!process) return []
@@ -155,19 +158,14 @@ export function ProcessPage() {
           <aside className="side" aria-label="Painel do processo e da atividade">
             <div className="side-scroll">
               {/* tudo o que fica fora do computador de bordo vale para o processo inteiro e não muda com a seleção */}
-              <section className="side-section" aria-labelledby="side-process">
-                <div className="side-head">
-                  <h2 className="panel-title" id="side-process">Processo</h2>
-                  <span className="side-file" title={process.fileName}>{process.fileName}</span>
-                </div>
+              <section className="side-section" aria-label="Processo">
                 <dl className="process-facts">
                   <div><dt>Traces</dt><dd>{number(process.traceCount)}</dd></div>
                   <div><dt>Eventos</dt><dd>{number(process.eventCount)}</dd></div>
                   <div><dt>Variantes</dt><dd>{number(process.variantCount)}</dd></div>
                 </dl>
               </section>
-              <section className="side-section">
-                <h2 className="panel-title">Densidade do grafo</h2>
+              <section className="side-section" aria-label="Densidade do grafo">
                 <Slider label="Atividades" value={actPct} onChange={setActPct} />
                 <Slider label="Caminhos" value={pathPct} onChange={setPathPct} />
                 <div className="density-count">
@@ -175,14 +173,11 @@ export function ProcessPage() {
                   <span><b>{filtered.edges.length}</b> caminhos</span>
                 </div>
               </section>
-              <section className="side-section">
-                <label className="metric">
-                  <span className="panel-title">Mostrar</span>
-                  <select className="field" value={metric} onChange={(e) => setMetric(e.target.value as Metric)}>
-                    <option value="frequency">Frequência absoluta</option>
-                  </select>
-                </label>
-                <FrequencyScales maxActivity={scale.activity} maxPath={scale.path} />
+              <section className="side-section" aria-label="O que o grafo mostra">
+                <select className="field metric" aria-label="Mostrar" value={metric} onChange={(e) => setMetric(e.target.value as Metric)}>
+                  <option value="frequency">Frequência absoluta</option>
+                </select>
+                <FrequencyScales activity={scale.activity} path={scale.path} />
               </section>
               <ActivityBoard node={node} onClose={() => setSelected(null)} onAnalyse={() => setModal('analysis-activity')} />
             </div>
@@ -254,24 +249,38 @@ function EmptyCanvas({ process, onUpload, onResume }: { process: Process; onUplo
   )
 }
 
-const SCALE_STEPS = [0.1, 0.4, 0.7, 1]
+/** Funil deitado, como a legenda do Disco: estreito na ponta rara, largo na frequente. */
+function Funnel({ id, from, to, stops }: { id: string; from: number; to: number; stops: { color: string; opacity?: number }[] }) {
+  return (
+    <svg className="funnel" viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id={id} x1="0" x2="1" y1="0" y2="0">
+          {stops.map((st, i) => <stop key={i} offset={`${(i / (stops.length - 1)) * 100}%`} stopColor={st.color} stopOpacity={st.opacity ?? 1} />)}
+        </linearGradient>
+      </defs>
+      <polygon points={`0,${10 - from} 100,${10 - to} 100,${10 + to} 0,${10 + from}`} fill={`url(#${id})`} />
+    </svg>
+  )
+}
 
-/** Legenda das duas escalas de frequência absoluta: a cor dos cards e a espessura das setas. */
-function FrequencyScales({ maxActivity, maxPath }: { maxActivity: number; maxPath: number }) {
+/** Legenda das duas escalas de frequência absoluta: a faixa dos cards e a espessura das setas. */
+function FrequencyScales({ activity, path }: { activity: [number, number]; path: [number, number] }) {
+  const low = (range: [number, number]) => range[0] / Math.max(1, range[1])
   return (
     <div className="scales">
-      <div className="scale">
-        <span className="scale-name">Atividades</span>
-        {SCALE_STEPS.map((f) => <span key={f} className="scale-card" aria-hidden="true" style={{ background: activityFill(f), borderColor: activityStroke(f) }} />)}
-        <span className="scale-unit">execuções</span>
-        {SCALE_STEPS.map((f) => <span key={f} className="scale-tick">{number(Math.max(1, Math.round(maxActivity * f)))}</span>)}
-      </div>
-      <div className="scale">
-        <span className="scale-name">Caminhos</span>
-        {SCALE_STEPS.map((f) => <span key={f} className="scale-path" aria-hidden="true"><i style={{ height: Math.round(freqHalfW(f) * 1.2), opacity: freqOpacity(f), background: `linear-gradient(90deg, ${GRAD_LIGHT}, ${GRAD_DEEP})` }} /></span>)}
-        <span className="scale-unit">transições</span>
-        {SCALE_STEPS.map((f) => <span key={f} className="scale-tick">{number(Math.max(1, Math.round(maxPath * f)))}</span>)}
-      </div>
+      <span>Atividades</span>
+      <span className="scale-end">{number(activity[0])}</span>
+      <Funnel id="scale-activities" from={2} to={9} stops={[{ color: activityStripe(low(activity)) }, { color: activityStripe(1) }]} />
+      <span className="scale-end">{number(activity[1])}</span>
+      <span>Caminhos</span>
+      <span className="scale-end">{number(path[0])}</span>
+      <Funnel
+        id="scale-paths"
+        from={Math.max(1, freqHalfW(low(path)) * 0.85)}
+        to={freqHalfW(1) * 0.85}
+        stops={[{ color: GRAD_LIGHT, opacity: freqOpacity(low(path)) }, { color: GRAD_MID, opacity: 0.85 }, { color: GRAD_DEEP }]}
+      />
+      <span className="scale-end">{number(path[1])}</span>
     </div>
   )
 }
@@ -284,14 +293,11 @@ function ActivityBoard({ node, onClose, onAnalyse }: { node: GraphNode | null; o
     <section className={`board${node ? ' is-on' : ''}`} aria-label="Computador de bordo da atividade">
       <header className="board-head">
         <span className="board-led" aria-hidden="true" />
-        <div className="board-title">
-          <span className="panel-title">Atividade</span>
-          <h3>{node ? node.label : 'Nenhuma selecionada'}</h3>
-        </div>
+        <h3>{node ? node.label : 'Nenhuma atividade selecionada'}</h3>
         {node && <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={onClose} aria-label="Fechar atividade"><X size={14} /></button>}
       </header>
       {!node ? (
-        <p className="board-idle">Clique em uma atividade do grafo. Os indicadores dela aparecem aqui, separados dos dados do processo.</p>
+        <p className="board-idle">Clique em uma atividade do grafo para ver os dados dela.</p>
       ) : (
         <>
           <div className="tabs" role="tablist">

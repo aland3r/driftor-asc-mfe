@@ -486,16 +486,20 @@ export const GRAD_MID = '#4d8fc0'
 export const GRAD_DEEP = '#2870a8'
 export const freqOpacity = (f: number) => 0.5 + f * 0.5
 
-/** Cor da atividade pela frequência (0..1): do neutro dos cards, na rara, ao azul cheio, na mais executada. */
-const FILL_LOW = [43, 56, 73]
-const FILL_HIGH = [32, 92, 148]
-const STROKE_LOW = [72, 86, 104]
-const STROKE_HIGH = [96, 160, 214]
-const mix = (lo: number[], hi: number[], f: number) => `rgb(${lo.map((v, i) => Math.round(v + (hi[i] - v) * clamp(f, 0, 1))).join(',')})`
-export const activityFill = (f: number) => mix(FILL_LOW, FILL_HIGH, f)
-export const activityStroke = (f: number) => mix(STROKE_LOW, STROKE_HIGH, f)
 // raiz quadrada: num log real, caminhos de dezenas de casos não somem ao lado de um de milhares
 export const freqHalfW = (f: number) => 1.5 + Math.sqrt(f) * 9.0
+
+/*
+ * Frequência da atividade no card (0..1): a faixa do topo clareia e o brilho azul que desce dela
+ * ganha força. O card em si continua escuro, como o resto da interface.
+ */
+export const CARD_BASE = '#2b3849'
+export const CARD_ACCENT = '#4d8fc0'
+const STRIPE_LOW = [84, 100, 120]
+const STRIPE_HIGH = [126, 194, 248]
+const mix = (lo: number[], hi: number[], f: number) => `rgb(${lo.map((v, i) => Math.round(v + (hi[i] - v) * clamp(f, 0, 1))).join(',')})`
+export const activityStripe = (f: number) => mix(STRIPE_LOW, STRIPE_HIGH, f)
+export const activityGlow = (f: number) => clamp(f, 0, 1)
 
 export function curvePath(c: Curve): string {
   return `M ${c.p0.x},${c.p0.y} C ${c.p1.x},${c.p1.y} ${c.p2.x},${c.p2.y} ${c.p3.x},${c.p3.y}`

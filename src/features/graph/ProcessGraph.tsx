@@ -4,7 +4,7 @@ import type { GraphEdge, GraphNode } from '../../api/types'
 import { number } from '../../lib/format'
 import {
   CIRC_R, GRAD_DEEP, GRAD_LIGHT, GRAD_MID, NODE_H, NODE_W,
-  activityFill, activityStroke, arrowPath, bounds, curvePath, freqHalfW, freqOpacity, hitTest, layoutGraph,
+  CARD_ACCENT, CARD_BASE, activityGlow, activityStripe, arrowPath, bounds, curvePath, freqHalfW, freqOpacity, hitTest, layoutGraph,
   type LaidNode, type Layout,
 } from './geometry'
 import './graph.css'
@@ -101,6 +101,11 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
           <pattern id="graph-dots" width="24" height="24" patternUnits="userSpaceOnUse">
             <circle cx="1" cy="1" r="1" fill="rgba(255,255,255,0.09)" />
           </pattern>
+          <linearGradient id="card-glow" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={CARD_ACCENT} stopOpacity={0.72} />
+            <stop offset="55%" stopColor={CARD_ACCENT} stopOpacity={0.2} />
+            <stop offset="100%" stopColor={CARD_ACCENT} stopOpacity={0.06} />
+          </linearGradient>
           <marker id="arrow-endpoint" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
             <path d="M 0 1 L 8 4 L 0 7 Z" fill={ENDPOINT_STROKE} />
           </marker>
@@ -218,10 +223,13 @@ function ActivityNode({ node, selected }: { node: LaidNode; selected: boolean })
     <g style={{ cursor: 'pointer' }}>
       <title>{`${node.label}: ${number(node.node!.frequency)} execuções`}</title>
       {selected && <rect x={-4} y={-4} width={NODE_W + 8} height={NODE_H + 8} rx={9} fill="rgba(245,158,11,0.08)" stroke="#f59e0b" strokeWidth={1.5} />}
-      {/* a cor do card é a frequência absoluta da atividade, na mesma escala da legenda */}
-      <rect width={NODE_W} height={NODE_H} rx={6} fill={activityFill(node.share)} stroke={activityStroke(node.share)} />
-      <text x={12} y={27} fontSize={13} fontFamily="'Inter',sans-serif" fontWeight={500} fill="#eef4fa">{label}</text>
-      <text x={12} y={47} fontSize={12} fontFamily="'JetBrains Mono',monospace" fill="#cbdff0">{number(node.node!.frequency)}</text>
+      {/* frequência absoluta da atividade: a faixa do topo e o brilho que desce dela, na escala da legenda */}
+      <rect width={NODE_W} height={NODE_H} rx={6} fill={CARD_BASE} />
+      <rect width={NODE_W} height={NODE_H} rx={6} fill="url(#card-glow)" opacity={activityGlow(node.share)} />
+      <rect width={NODE_W} height={NODE_H} rx={6} fill="none" stroke={activityStripe(node.share)} strokeOpacity={0.22 + node.share * 0.4} />
+      <rect width={NODE_W} height={3} rx={1.5} fill={activityStripe(node.share)} />
+      <text x={12} y={28} fontSize={13} fontFamily="'Inter',sans-serif" fontWeight={500} fill="#e8eef5">{label}</text>
+      <text x={12} y={48} fontSize={12} fontFamily="'JetBrains Mono',monospace" fill={activityStripe(0.6 + node.share * 0.4)}>{number(node.node!.frequency)}</text>
     </g>
   )
 }
