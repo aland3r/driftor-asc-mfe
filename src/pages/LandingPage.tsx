@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Github, Youtube } from 'lucide-react'
+import { ArrowRight, FileCode2, Github, LayoutGrid, Network, Package, Radio, ShieldCheck, Youtube } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { AppHeader } from '../components/AppHeader'
 import './landing.css'
 
@@ -10,6 +11,18 @@ const REPOS = [
   { name: 'driftor-asc-pmining', role: 'Processos: upload, mapeamento e grafo, no MongoDB Atlas' },
   { name: 'driftor-asc-ipdd', role: 'Análises de desvio e seus resultados, no Azure SQL' },
   { name: 'driftor-asc-fn-adwin', role: 'Azure Function com o ADWIN, acionada pela fila' },
+]
+const DOCS: { label: string; role: string; to: string; icon: LucideIcon }[] = [
+  { label: 'C4 Model', role: 'Contexto, containers e componentes, na documentação', to: '/documentacao#artefatos', icon: Network },
+  { label: 'Canvas da arquitetura', role: 'Architecture Communication Canvas do Driftor', to: '/documentacao#artefatos', icon: LayoutGrid },
+]
+const LINKS: { label: string; role: string; href: string; icon: LucideIcon }[] = [
+  { label: 'Swagger do BFF', role: 'Rotas do BFF, com o GET /aggregated-data', href: 'https://driftor-asc-bff.fly.dev/docs', icon: FileCode2 },
+  { label: 'Swagger do pmining', role: 'Microsserviço 1: CRUD de processos, MongoDB Atlas', href: 'https://driftor-asc-pmining.fly.dev/docs', icon: FileCode2 },
+  { label: 'Swagger do ipdd', role: 'Microsserviço 2: CRUD de análises, Azure SQL', href: 'https://driftor-asc-ipdd.fly.dev/docs', icon: FileCode2 },
+  { label: 'API Gateway', role: 'Azure API Management; sem a chave de assinatura responde 401', href: 'https://driftor-asc-apim.azure-api.net/api', icon: ShieldCheck },
+  { label: 'Eventos (AsyncAPI)', role: 'Filas analysis-requested, analysis-completed e process-deleted', href: 'https://driftor-asc-ipdd.fly.dev/events', icon: Radio },
+  { label: 'Imagens no Docker Hub', role: 'Uma imagem por serviço, publicada pelo pipeline', href: 'https://hub.docker.com/u/aland3r', icon: Package },
 ]
 const VIDEO_URL = import.meta.env.VITE_VIDEO_URL as string | undefined
 
@@ -67,6 +80,30 @@ export function LandingPage() {
                   </span>
                 )}
               </li>
+            </ul>
+          </section>
+
+          <section className="delivery" aria-labelledby="artifacts-title">
+            <h2 id="artifacts-title">Outros artefatos obrigatórios</h2>
+            <ul className="delivery-list">
+              {DOCS.map(({ label, role, to, icon: Icon }) => (
+                <li key={label}>
+                  <Link to={to}>
+                    <Icon size={16} aria-hidden="true" />
+                    <span>{label}</span>
+                    <span className="delivery-role">{role}</span>
+                  </Link>
+                </li>
+              ))}
+              {LINKS.map(({ label, role, href, icon: Icon }) => (
+                <li key={label}>
+                  <a href={href} target="_blank" rel="noreferrer">
+                    <Icon size={16} aria-hidden="true" />
+                    <span>{label}</span>
+                    <span className="delivery-role">{role}</span>
+                  </a>
+                </li>
+              ))}
             </ul>
           </section>
         </main>
