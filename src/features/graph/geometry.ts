@@ -155,16 +155,22 @@ export function edgeCurve(src: LaidNode, tgt: LaidNode, layout: Layout, isBack: 
     return { p0: { x: src.x + NODE_W, y: sy }, p1: { x: lx + 52, y: sy - 14 }, p2: { x: lx + 52, y: ey + 14 }, p3: { x: src.x + NODE_W, y: ey }, mid: { x: lx + 54, y: src.y + NODE_H / 2 } }
   }
   if (isBack) {
+    // A volta contorna pelo lado em que a origem está: origem à direita do destino volta pela direita
+    // (abaixo, no layout horizontal), para a ligação não cruzar o grafo.
     if (layout === 'horizontal') {
-      const s = { x: src.x + width(src) / 2, y: src.y }
-      const e = { x: tgt.x + width(tgt) / 2, y: tgt.y }
-      const arcY = Math.min(s.y, e.y) - 70 - Math.abs(e.x - s.x) * 0.08 - lane * 18
-      return { p0: s, p1: { x: s.x, y: arcY }, p2: { x: e.x, y: arcY }, p3: e, mid: { x: (s.x + e.x) / 2, y: arcY + 4 } }
+      const below = src.y + height(src) / 2 > tgt.y + height(tgt) / 2 + 1
+      const s = { x: src.x + width(src) / 2, y: below ? src.y + height(src) : src.y }
+      const e = { x: tgt.x + width(tgt) / 2, y: below ? tgt.y + height(tgt) : tgt.y }
+      const off = 70 + Math.abs(e.x - s.x) * 0.08 + lane * 18
+      const arcY = below ? Math.max(s.y, e.y) + off : Math.min(s.y, e.y) - off
+      return { p0: s, p1: { x: s.x, y: arcY }, p2: { x: e.x, y: arcY }, p3: e, mid: { x: (s.x + e.x) / 2, y: arcY + (below ? -4 : 4) } }
     }
-    const s = { x: src.x, y: src.y + height(src) / 2 }
-    const e = { x: tgt.x, y: tgt.y + height(tgt) / 2 }
-    const leftX = Math.min(s.x, e.x) - 70 - Math.abs(s.y - e.y) * 0.12 - lane * 18
-    return { p0: s, p1: { x: leftX, y: s.y }, p2: { x: leftX, y: e.y }, p3: e, mid: { x: leftX + 14, y: (s.y + e.y) / 2 } }
+    const right = src.x + width(src) / 2 > tgt.x + width(tgt) / 2 + 1
+    const s = { x: right ? src.x + width(src) : src.x, y: src.y + height(src) / 2 }
+    const e = { x: right ? tgt.x + width(tgt) : tgt.x, y: tgt.y + height(tgt) / 2 }
+    const off = 70 + Math.abs(s.y - e.y) * 0.12 + lane * 18
+    const sideX = right ? Math.max(s.x, e.x) + off : Math.min(s.x, e.x) - off
+    return { p0: s, p1: { x: sideX, y: s.y }, p2: { x: sideX, y: e.y }, p3: e, mid: { x: sideX + (right ? -14 : 14), y: (s.y + e.y) / 2 } }
   }
   const s = srcPoint(src, layout)
   const e = tgtPoint(tgt, layout)

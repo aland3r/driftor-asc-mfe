@@ -137,7 +137,9 @@ function ActivityCard({ row, catalog, onName, onPick, onDescription, onEdit, onV
   // Ao abrir a edição, o catálogo inteiro aparece; depois de digitar, a lista filtra pelo texto.
   const q = key(row.activity)
   const filtered = useMemo(
-    () => catalog.filter((a) => key(a.name) !== q && (!typed || key(a.name).includes(q))).slice(0, 8),
+    () => catalog
+      .filter((a) => key(a.name) !== q && (!typed || key(a.name).includes(q)))
+      .sort((a, b) => Number(b.inProcess) - Number(a.inProcess) || a.name.localeCompare(b.name, 'pt-BR')),
     [catalog, q, typed],
   )
   const canCreate = typed && q.length > 0 && !catalog.some((a) => key(a.name) === q)
