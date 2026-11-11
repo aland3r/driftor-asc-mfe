@@ -48,5 +48,36 @@
 .zoom-scroll { flex: 1; overflow: auto; padding: 0 16px 16px; }
 .zoom-canvas { margin: 0 auto; padding: 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
 .zoom-canvas svg { width: 100% !important; height: 100% !important; max-width: none !important; }
+/* Artefatos obrigatórios: atalhos do C4, canvas e links */
+.doc-nav-extra { margin-top: 8px; border-top: 1px solid var(--line) !important; padding-top: 12px !important; }
+.c4-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 18px 0; }
+.c4-card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 8px; border: 1px solid rgba(77,143,192,0.2); background: var(--panel); text-align: left; transition: border-color .15s, background .15s; }
+.c4-card:hover { border-color: var(--accent-text); background: rgba(77,143,192,0.1); }
+.c4-title { font-size: var(--fs-lg); font-weight: 600; color: var(--text); }
+.c4-where { display: flex; align-items: center; gap: 4px; font-size: var(--fs-sm); color: var(--accent-text); }
+.acc { display: grid; gap: 8px; margin: 18px 0 10px; grid-template-columns: repeat(4, 1fr);
+  grid-template-areas: "vp cf cd tech" "ks qr cd tech" "bc bc comp comp" "risk risk risk risk"; }
+.acc-block { padding: 12px 14px; border-radius: 8px; border: 1px solid; font-size: var(--fs-sm); line-height: 1.5; }
+.acc-block h3 { margin: 0 0 8px; font-size: var(--fs-sm); font-weight: 600; color: var(--text); }
+.acc-block h3 span { display: block; font-family: var(--mono); font-size: var(--fs-xs); font-weight: 400; color: var(--text-dim); }
+.acc-block ul { margin: 0; padding-left: 16px; max-width: none; }
+.acc-block li { margin: 3px 0; }
+.acc-req { background: rgba(16,185,129,0.07); border-color: rgba(16,185,129,0.3); }
+.acc-sol { background: rgba(77,143,192,0.08); border-color: rgba(77,143,192,0.32); }
+.acc-risk { background: rgba(220,38,38,0.08); border-color: rgba(220,38,38,0.35); }
+.acc-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-xs); color: var(--text-muted); max-width: none !important; }
+.acc-key { display: inline-flex; align-items: center; gap: 6px; padding: 0 !important; background: none !important; border: 0 !important; }
+.acc-key::before { content: ''; width: 10px; height: 10px; border-radius: 2px; }
+.acc-key.acc-req::before { background: rgba(16,185,129,0.6); }
+.acc-key.acc-sol::before { background: rgba(77,143,192,0.7); }
+.acc-key.acc-risk::before { background: rgba(220,38,38,0.7); }
+.acc-credit, .acc-note { font-size: var(--fs-xs); color: var(--text-dim); }
+.ext-link { display: inline-flex; align-items: center; gap: 4px; word-break: break-all; }
+.link-list { list-style: none; padding-left: 0 !important; columns: 2; }
+@media (max-width: 860px) {
+  .c4-cards { grid-template-columns: 1fr; }
+  .acc { grid-template-columns: 1fr; grid-template-areas: "vp" "ks" "cf" "qr" "bc" "cd" "tech" "comp" "risk"; }
+  .link-list { columns: 1; }
+}
 @media (max-width: 980px) { .doc-toc { display: none; } }
 @media (max-width: 860px) { .doc-nav { display: none; } .doc-layout { padding: 28px 16px 64px; } .doc-pager { grid-template-columns: 1fr; } .pager-next { grid-column: 1; } }

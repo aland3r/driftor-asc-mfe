@@ -4,6 +4,7 @@ import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { api } from '../api/client'
 import { AppHeader } from '../components/AppHeader'
+import { ARTIFACT_SUBS, ArtifactsPanel } from '../features/docs/Artifacts'
 import { Mermaid } from '../features/docs/Mermaid'
 import { SECTION_BLURBS, parseArc42, type Arc42Section } from '../features/docs/arc42'
 import './docs.css'
@@ -38,11 +39,18 @@ const MD: Components = {
   img: ({ src, alt }) => <img src={typeof src === 'string' ? src : undefined} alt={alt ?? ''} className="doc-img" />,
 }
 
+const ARTIFACTS = 'artefatos'
+
 /** Documentação: o arc42 do projeto servido pelo BFF, com índice das seções e "Nesta página". */
 export function DocsPage() {
   const [markdown, setMarkdown] = useState('')
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
-  const [active, setActive] = useState(() => (typeof location !== 'undefined' && /^#s\d+$/.test(location.hash) ? location.hash.slice(2) : '1'))
+  const [active, setActive] = useState(() => {
+    if (typeof location === 'undefined') return '1'
+    if (location.hash === `#${ARTIFACTS}`) return ARTIFACTS
+    return /^#s\d+$/.test(location.hash) ? location.hash.slice(2) : '1'
+  })
+  const [pendingSub, setPendingSub] = useState<string | null>(null)
   const [activeSub, setActiveSub] = useState<string | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
@@ -53,24 +61,36 @@ export function DocsPage() {
   }, [])
 
   const { intro, sections } = useMemo(() => parseArc42(markdown), [markdown])
-  const section = sections.find((s) => s.id === active) ?? sections[0]
+  const isArtifacts = active === ARTIFACTS
+  const section = isArtifacts ? undefined : sections.find((s) => s.id === active) ?? sections[0]
+  const subs = isArtifacts ? ARTIFACT_SUBS : section?.sub ?? []
   const index = section ? sections.indexOf(section) : -1
   const prev = index > 0 ? sections[index - 1] : null
   const next = index >= 0 && index < sections.length - 1 ? sections[index + 1] : null
 
-  useEffect(() => { setActiveSub(section?.sub[0]?.id ?? null) }, [section])
+  useEffect(() => { setActiveSub(subs[0]?.id ?? null) }, [section, isArtifacts])
 
-  function go(id: string) {
+  // Atalho vindo dos artefatos: abre a seção e rola até a subseção depois que os diagramas desenham.
+  useEffect(() => {
+    if (!pendingSub || status !== 'ready') return
+    const scroll = () => contentRef.current?.querySelector(`[data-anchor="${pendingSub}"]`)?.scrollIntoView({ block: 'start' })
+    const timers = [50, 600, 1500].map((ms) => setTimeout(scroll, ms))
+    const done = setTimeout(() => setPendingSub(null), 1600)
+    return () => { timers.forEach(clearTimeout); clearTimeout(done) }
+  }, [pendingSub, active, status])
+
+  function go(id: string, sub?: string) {
     setActive(id)
-    history.replaceState(null, '', `#s${id}`)
+    history.replaceState(null, '', id === ARTIFACTS ? `#${ARTIFACTS}` : `#s${id}`)
     if (contentRef.current) contentRef.current.scrollTop = 0
+    setPendingSub(sub ?? null)
   }
 
   function onScroll() {
     const root = contentRef.current
-    if (!root || !section?.sub.length) return
+    if (!root || !subs.length) return
     const limit = root.getBoundingClientRect().top + root.clientHeight / 3
-    let current = section.sub[0].id
+    let current = subs[0].id
     root.querySelectorAll<HTMLElement>('[data-anchor]').forEach((el) => { if (el.getBoundingClientRect().top <= limit) current = el.dataset.anchor ?? current })
     setActiveSub(current)
   }
@@ -90,6 +110,11 @@ export function DocsPage() {
               <span className="mono">{s.num}</span>{s.title}
             </button>
           ))}
+          {sections.length > 0 && (
+            <button type="button" className={`doc-nav-extra ${isArtifacts ? 'active' : ''}`} aria-current={isArtifacts ? 'page' : undefined} onClick={() => go(ARTIFACTS)}>
+              <span className="mono">+</span>Artefatos obrigatórios
+            </button>
+          )}
         </nav>
         <div ref={contentRef} onScroll={onScroll} className="doc-scroll">
           <div className="doc-layout">
@@ -106,7 +131,17 @@ export function DocsPage() {
                     </aside>
                   )}
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD}>{section.body}</ReactMarkdown>
-                  {(prev || next) && (
+                  {section.id === sections[sections.length - 1]?.id && (
+                    <nav className="doc-pager" aria-label="Navegação entre seções">
+                      {prev && <Pager section={prev} dir="prev" onClick={() => go(prev.id)} />}
+                      <button type="button" className="pager pager-next" onClick={() => go(ARTIFACTS)}>
+                        <span className="pager-dir">Próxima</span>
+                        <span className="pager-title"><span className="mono">+</span>Artefatos obrigatórios</span>
+                        <span className="pager-blurb">C4, canvas e links para os prints</span>
+                      </button>
+                    </nav>
+                  )}
+                  {section.id !== sections[sections.length - 1]?.id && (prev || next) && (
                     <nav className="doc-pager" aria-label="Navegação entre seções">
                       {prev && <Pager section={prev} dir="prev" onClick={() => go(prev.id)} />}
                       {next && <Pager section={next} dir="next" onClick={() => go(next.id)} />}
@@ -114,12 +149,24 @@ export function DocsPage() {
                   )}
                 </>
               )}
+              {status === 'ready' && isArtifacts && (
+                <>
+                  <p className="doc-kicker mono">Anexo</p>
+                  <h1>Artefatos obrigatórios</h1>
+                  <ArtifactsPanel onOpen={(id, sub) => go(id, sub)} />
+                  {sections.length > 0 && (
+                    <nav className="doc-pager" aria-label="Navegação entre seções">
+                      <Pager section={sections[sections.length - 1]} dir="prev" onClick={() => go(sections[sections.length - 1].id)} />
+                    </nav>
+                  )}
+                </>
+              )}
             </article>
             <div className="doc-toc">
-              {section && section.sub.length > 0 && (
+              {subs.length > 0 && (
                 <>
                   <p className="doc-toc-title">Nesta página</p>
-                  {section.sub.map((s) => (
+                  {subs.map((s) => (
                     <button key={s.id} type="button" className={activeSub === s.id ? 'active' : ''} onClick={() => toSub(s.id)}>{s.title}</button>
                   ))}
                 </>
