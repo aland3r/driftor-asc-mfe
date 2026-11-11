@@ -32,6 +32,8 @@ export interface LaidEdge {
   share: number // 0..1
   isBack: boolean
   isSelf: boolean
+  /** Aresta para a frente que pularia por cima de outro nó: contorna pela lateral (-1 esquerda/cima, 1 direita/baixo) até `at`. */
+  bypass?: { side: -1 | 1; at: number }
 }
 
 /** Acrescenta os nós de início e fim a partir das frequências de início e fim de cada atividade. */
@@ -91,13 +93,17 @@ export function layoutGraph(nodes: GraphNode[], edges: GraphEdge[], layout: Layo
   for (const e of edges) if (e.source !== e.target) g.setEdge(e.source, e.target, { weight: e.frequency })
   dagre.layout(g)
 
+  const ids = g.nodes()
+  const center = spineLayout(ids, edges, (id) => g.node(id) as { x: number; y: number }, layout)
   const laid: LaidNode[] = []
-  const pos = (id: string) => g.node(id) as { x: number; y: number; width: number; height: number }
-  if (usesStart) laid.push({ id: START_ID, label: 'Início', kind: 'start', x: pos(START_ID).x - CIRC_R, y: pos(START_ID).y - CIRC_R, share: 1 })
-  if (usesEnd) laid.push({ id: END_ID, label: 'Fim', kind: 'end', x: pos(END_ID).x - CIRC_R, y: pos(END_ID).y - CIRC_R, share: 1 })
+  const at = (id: string, w: number, h: number) => {
+    const c = center.get(id)!
+    return { x: c.x - w / 2, y: c.y - h / 2 }
+  }
+  if (usesStart) laid.push({ id: START_ID, label: 'Início', kind: 'start', ...at(START_ID, CIRC_R * 2, CIRC_R * 2), share: 1 })
+  if (usesEnd) laid.push({ id: END_ID, label: 'Fim', kind: 'end', ...at(END_ID, CIRC_R * 2, CIRC_R * 2), share: 1 })
   for (const n of nodes) {
-    const p = pos(n.id)
-    laid.push({ id: n.id, label: n.label, kind: 'activity', x: p.x - NODE_W / 2, y: p.y - NODE_H / 2, share: n.frequency / maxNode, node: n })
+    laid.push({ id: n.id, label: n.label, kind: 'activity', ...at(n.id, NODE_W, NODE_H), share: n.frequency / maxNode, node: n })
   }
   const byId = new Map(laid.map((n) => [n.id, n]))
   const maxEdge = Math.max(1, ...edges.map((e) => e.frequency))
@@ -109,9 +115,85 @@ export function layoutGraph(nodes: GraphNode[], edges: GraphEdge[], layout: Layo
       const isSelf = e.source === e.target
       // o dagre inverte arestas de ciclos: o destino fica antes da origem
       const isBack = !isSelf && (layout === 'vertical' ? t.y < s.y : t.x < s.x)
-      return { id: `${e.source}→${e.target}`, source: e.source, target: e.target, frequency: e.frequency, share: e.frequency / maxEdge, isBack, isSelf }
+      const bypass = isSelf || isBack ? undefined : findBypass(s, t, laid, layout)
+      return { id: `${e.source}→${e.target}`, source: e.source, target: e.target, frequency: e.frequency, share: e.frequency / maxEdge, isBack, isSelf, bypass }
     })
   return { nodes: laid, edges: laidEdges }
+}
+
+/*
+ * Espinha central: a variante principal (o caminho mais frequente do início ao fim) fica numa
+ * coluna reta no centro, e as outras atividades de cada nível vão para as laterais, da mais
+ * próxima para a mais distante, do lado em que o dagre já as tinha posto. Assim as setas
+ * grossas seguem retas e as raras fazem as curvas.
+ */
+function spineLayout(ids: string[], edges: GraphEdge[], dagrePos: (id: string) => Pt, layout: Layout): Map<string, Pt> {
+  const vertical = layout === 'vertical'
+  const along = (id: string) => (vertical ? dagrePos(id).y : dagrePos(id).x)
+  const cross = (id: string) => (vertical ? dagrePos(id).x : dagrePos(id).y)
+  const step = vertical ? NODE_W + 48 : NODE_H + 40
+
+  const out = new Map<string, GraphEdge[]>()
+  for (const e of edges) if (e.source !== e.target) out.set(e.source, [...(out.get(e.source) ?? []), e])
+  const first = ids.includes(START_ID) ? START_ID : [...ids].sort((a, b) => along(a) - along(b))[0]
+  const spine = new Set<string>()
+  for (let cur: string | undefined = first; cur && !spine.has(cur); ) {
+    spine.add(cur)
+    const next: GraphEdge | undefined = (out.get(cur) ?? [])
+      .filter((e) => along(e.target) > along(cur!) && !spine.has(e.target))
+      .sort((a, b) => b.frequency - a.frequency)[0]
+    cur = next?.target
+  }
+  const spineCross = [...spine].map(cross)
+  const mid = spineCross.length ? spineCross.reduce((a, b) => a + b, 0) / spineCross.length : 0
+
+  const ranks = new Map<number, string[]>()
+  for (const id of ids) {
+    const r = Math.round(along(id))
+    ranks.set(r, [...(ranks.get(r) ?? []), id])
+  }
+  const result = new Map<string, Pt>()
+  const place = (id: string, c: number) => result.set(id, vertical ? { x: c, y: along(id) } : { x: along(id), y: c })
+  ranks.forEach((members) => {
+    const axis = members.find((id) => spine.has(id))
+    const ref = axis ? cross(axis) : mid
+    if (axis) place(axis, 0)
+    // mantém a ordem do dagre (menos cruzamentos) e reparte os nós entre os dois lados
+    const rest = members.filter((id) => id !== axis).sort((a, b) => cross(a) - cross(b))
+    const natural = rest.filter((id) => cross(id) - ref < -1).length + Math.floor(rest.filter((id) => Math.abs(cross(id) - ref) <= 1).length / 2)
+    const k = Math.min(Math.ceil(rest.length / 2), Math.max(Math.floor(rest.length / 2), natural))
+    const left = rest.slice(0, k)
+    const right = rest.slice(k)
+    // com a coluna central livre, um nó de um lado só fica a um passo dela
+    left.reverse().forEach((id, i) => place(id, -(i + 1) * step))
+    right.forEach((id, i) => place(id, (i + 1) * step))
+  })
+  return result
+}
+
+/** Se a ligação direta entre dois níveis passaria por cima de outro nó, contorna pelo lado mais livre. */
+function findBypass(s: LaidNode, t: LaidNode, nodes: LaidNode[], layout: Layout): LaidEdge['bypass'] {
+  const vertical = layout === 'vertical'
+  const lo = (n: LaidNode) => (vertical ? n.y : n.x)
+  const hi = (n: LaidNode) => lo(n) + (vertical ? height(n) : width(n))
+  const c0 = (n: LaidNode) => (vertical ? n.x : n.y)
+  const c1 = (n: LaidNode) => c0(n) + (vertical ? width(n) : height(n))
+  const sc = (c0(s) + c1(s)) / 2
+  const tc = (c0(t) + c1(t)) / 2
+  const from = hi(s)
+  const to = lo(t)
+  const between = nodes.filter((n) => n !== s && n !== t && lo(n) > from - 1 && hi(n) < to + 1)
+  const blocked = between.some((n) => {
+    const k = (lo(n) + hi(n)) / 2
+    const f = (k - from) / Math.max(1, to - from)
+    const c = sc + (tc - sc) * f
+    return c > c0(n) - 12 && c < c1(n) + 12
+  })
+  if (!blocked) return undefined
+  const lowEdge = Math.min(c0(s), c0(t), ...between.map(c0))
+  const highEdge = Math.max(c1(s), c1(t), ...between.map(c1))
+  const side: -1 | 1 = Math.abs(sc - lowEdge) <= Math.abs(highEdge - sc) ? -1 : 1
+  return { side, at: side < 0 ? lowEdge - 36 : highEdge + 36 }
 }
 
 /* ─── curvas ─────────────────────────────────────────────────────────── */
@@ -147,7 +229,7 @@ const height = (n: LaidNode) => (n.kind === 'activity' ? NODE_H : CIRC_R * 2)
 const width = (n: LaidNode) => (n.kind === 'activity' ? NODE_W : CIRC_R * 2)
 
 /** Pontos de controle de uma aresta; o deslocamento separa arestas paralelas. */
-export function edgeCurve(src: LaidNode, tgt: LaidNode, layout: Layout, isBack: boolean, lane = 0): Curve {
+export function edgeCurve(src: LaidNode, tgt: LaidNode, layout: Layout, isBack: boolean, lane = 0, bypass?: LaidEdge['bypass']): Curve {
   if (src.id === tgt.id) {
     const sy = src.y + NODE_H * 0.28
     const ey = src.y + NODE_H * 0.72
@@ -171,6 +253,17 @@ export function edgeCurve(src: LaidNode, tgt: LaidNode, layout: Layout, isBack: 
     const off = 70 + Math.abs(s.y - e.y) * 0.12 + lane * 18
     const sideX = right ? Math.max(s.x, e.x) + off : Math.min(s.x, e.x) - off
     return { p0: s, p1: { x: sideX, y: s.y }, p2: { x: sideX, y: e.y }, p3: e, mid: { x: sideX + (right ? -14 : 14), y: (s.y + e.y) / 2 } }
+  }
+  if (bypass) {
+    // sai pela lateral da origem, corre por fora dos nós do meio e entra pela lateral do destino
+    if (layout === 'horizontal') {
+      const s = { x: src.x + width(src) / 2, y: bypass.side < 0 ? src.y : src.y + height(src) }
+      const e = { x: tgt.x + width(tgt) / 2, y: bypass.side < 0 ? tgt.y : tgt.y + height(tgt) }
+      return { p0: s, p1: { x: s.x, y: bypass.at }, p2: { x: e.x, y: bypass.at }, p3: e, mid: { x: (s.x + e.x) / 2, y: bypass.at } }
+    }
+    const s = { x: bypass.side < 0 ? src.x : src.x + width(src), y: src.y + height(src) / 2 }
+    const e = { x: bypass.side < 0 ? tgt.x : tgt.x + width(tgt), y: tgt.y + height(tgt) / 2 }
+    return { p0: s, p1: { x: bypass.at, y: s.y }, p2: { x: bypass.at, y: e.y }, p3: e, mid: { x: bypass.at + bypass.side * -6, y: (s.y + e.y) / 2 } }
   }
   const s = srcPoint(src, layout)
   const e = tgtPoint(tgt, layout)

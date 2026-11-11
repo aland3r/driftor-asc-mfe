@@ -113,7 +113,7 @@ export function ProcessGraph({ nodes, edges, selectedId, onSelect, highlight }: 
             const src = byId.get(edge.source)!
             const tgt = byId.get(edge.target)!
             const lane = edge.isBack ? (backLanes.get(edge.id) ?? backLanes.set(edge.id, backCount++).get(edge.id)!) % 4 : 0
-            const c = edgeCurve(src, tgt, layout, edge.isBack, lane)
+            const c = edgeCurve(src, tgt, layout, edge.isBack, lane, edge.bypass)
             const dimmed = highlight && !(highlight.has(edge.source) && highlight.has(edge.target))
             const opacity = freqOpacity(edge.share) * (dimmed ? 0.25 : 1)
             const label = number(edge.frequency)
