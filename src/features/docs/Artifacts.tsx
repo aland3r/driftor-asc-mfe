@@ -1,4 +1,5 @@
-import { ArrowUpRight, ChevronRight } from 'lucide-react'
+import { ArrowUpDown, ArrowUpRight, BadgeCheck, Briefcase, ChevronRight, CircleHelp, Link, List, Shapes, Users, Wrench } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 /*
   Artefatos obrigatórios da entrega: atalhos para o C4 dentro do arc42,
@@ -20,63 +21,72 @@ const C4 = [
 type Tone = 'req' | 'sol' | 'risk'
 interface Block { area: string; tone: Tone; title: string; original: string; items: string[] }
 
+const ICON: Record<string, LucideIcon> = { vp: Briefcase, ks: Users, cf: List, qr: BadgeCheck, cd: ArrowUpDown, tech: Wrench, bc: Link, comp: Shapes, risk: CircleHelp }
+
+const META = [
+  { label: 'Sistema', value: 'Driftor ASC' },
+  { label: 'Criado por', value: 'Alander Menezes Arantes de Ávila, Emanuelle Skolut Jose' },
+  { label: 'Criado para', value: 'Arquitetura e Soluções Cloud, PUCPR' },
+  { label: 'Data / iteração', value: '12/11/2026 · Entrega 3' },
+]
+
 const CANVAS: Block[] = [
   { area: 'vp', tone: 'req', title: 'Proposta de valor', original: 'Value Proposition', items: [
-    'Mostrar quando um processo produtivo mudou de ritmo, a partir do event log que a fábrica já exporta.',
-    'Aplica o detector ADWIN do método IPDD com os mesmos resultados publicados na pesquisa.',
+    'Ver quando o processo produtivo mudou de ritmo, direto do event log da fábrica.',
+    'ADWIN do método IPDD com os resultados publicados.',
   ] },
   { area: 'ks', tone: 'req', title: 'Stakeholders', original: 'Key Stakeholders', items: [
-    'Analista de processo, o usuário.',
-    'Autora do framework IPDD.',
-    'Professor de Arquitetura e Soluções Cloud.',
-    'Grupo de desenvolvimento.',
+    'Analista de processo (usuário)',
+    'Autora do framework IPDD',
+    'Professor de Arquitetura e Soluções Cloud',
+    'Grupo de desenvolvimento',
   ] },
   { area: 'cf', tone: 'req', title: 'Funções principais', original: 'Core Functions', items: [
-    'CRUD do Processo: criar pelo nome, carregar o log XES ou CSV, mapear as operações, ver grafo e variantes.',
-    'CRUD da Análise de desvios: gerar, ver série e desvios, renomear, excluir.',
-    'Painel e GET /aggregated-data no BFF.',
+    'CRUD do Processo: criar, carregar log, mapear, ver grafo',
+    'CRUD da Análise de desvios: gerar, ver, renomear, excluir',
+    'Painel via GET /aggregated-data',
   ] },
   { area: 'qr', tone: 'req', title: 'Requisitos de qualidade', original: 'Quality Requirements', items: [
-    'Correção analítica: 0, 4, 7 e 9 desvios nas bases do artigo.',
-    'Tolerância a falhas: resposta parcial se uma fonte cair.',
-    'Modificabilidade: só o pmining conhece o log.',
-    'Implantabilidade: uma imagem e um deploy por serviço.',
+    'Correção: 0, 4, 7 e 9 desvios',
+    'Tolerância a falhas',
+    'Modificabilidade',
+    'Implantabilidade',
   ] },
   { area: 'cd', tone: 'sol', title: 'Decisões principais', original: 'Core Decisions', items: [
-    'Dividir por dono do dado: pmining lê o log, ipdd guarda as análises, a Function só calcula.',
-    'ADWIN numa Azure Function disparada por fila, para o cálculo não prender a tela.',
-    'API Gateway no Azure API Management, na mesma assinatura dos outros recursos.',
-    'Contêineres no Fly.io, em São Paulo, a partir das imagens do Docker Hub.',
-    'Exclusão em cascata por evento (process-deleted).',
-    'Sem login nesta versão: acesso pela chave e pelo limite do gateway.',
+    'Um serviço por dono do dado',
+    'ADWIN em Function disparada por fila',
+    'API Gateway no Azure API Management',
+    'Contêineres no Fly.io (São Paulo)',
+    'Exclusão em cascata por evento',
+    'Sem login: chave e limite no gateway',
   ] },
   { area: 'tech', tone: 'sol', title: 'Tecnologias', original: 'Technologies', items: [
-    'React 19 e Vite na Vercel.',
-    'Node.js 22 e NestJS (BFF e ipdd).',
-    'Python 3.12, FastAPI e PM4Py (pmining).',
-    'Azure Functions Python com river (ADWIN).',
-    'Azure API Management e Service Bus.',
-    'MongoDB Atlas e Azure SQL.',
-    'Docker Hub, GitHub Actions e Fly.io.',
+    'React 19 + Vite · Vercel',
+    'Node.js 22 + NestJS',
+    'Python 3.12 + FastAPI + PM4Py',
+    'Azure Functions + river',
+    'API Management + Service Bus',
+    'MongoDB Atlas · Azure SQL',
+    'Docker Hub · GitHub Actions · Fly.io',
   ] },
   { area: 'bc', tone: 'req', title: 'Contexto de negócio', original: 'Business Context', items: [
-    'O analista usa o Driftor pelo navegador.',
-    'O sistema da fábrica exporta o event log que o analista carrega.',
-    'A pesquisa IPDD fornece o método e as bases de referência.',
+    'Analista usa o Driftor pelo navegador',
+    'Sistema da fábrica exporta o event log (XES ou CSV)',
+    'Pesquisa IPDD fornece o método e as bases de referência',
   ] },
   { area: 'comp', tone: 'sol', title: 'Componentes', original: 'Components / Modules', items: [
-    'Microfrontend, API Gateway e BFF.',
-    'pmining com MongoDB Atlas: processos, traces e atividades.',
-    'ipdd com Azure SQL: análises, desvios e pontos da série.',
-    'fn-adwin: cálculo do ADWIN, sem estado.',
-    'Service Bus: analysis-requested, analysis-completed e process-deleted.',
+    'Microfrontend → API Gateway → BFF',
+    'pmining + MongoDB Atlas (processos, traces, atividades)',
+    'ipdd + Azure SQL (análises, desvios, série)',
+    'fn-adwin, sem estado',
+    'Service Bus: 3 filas de eventos',
   ] },
   { area: 'risk', tone: 'risk', title: 'Riscos e informações faltantes', original: 'Risks and Missing Information', items: [
-    'Cold start do Fly.io, da Function e do Azure SQL serverless deixa a primeira tela lenta.',
-    'A cota gratuita do Azure SQL pode acabar no mês.',
-    'Os serviços no Fly.io também respondem fora do gateway.',
-    'Uma mensagem que sempre falha deixa a análise em andamento.',
-    'Fora desta versão: login de usuário e previsão de falha.',
+    'Cold start deixa a primeira tela lenta',
+    'Cota gratuita do Azure SQL pode acabar no mês',
+    'Serviços no Fly.io também respondem fora do gateway',
+    'Mensagem que sempre falha trava a análise em andamento',
+    'Fora desta versão: login e previsão de falha',
   ] },
 ]
 
@@ -117,18 +127,35 @@ export function ArtifactsPanel({ onOpen }: { onOpen: (section: string, sub: stri
         Architecture Communication Canvas do Driftor ASC: a arquitetura inteira em uma página, no modelo do{' '}
         <a href="https://canvas.arc42.org/architecture-communication-canvas" target="_blank" rel="noreferrer">arc42 Canvas</a>.
       </p>
-      <div className="acc">
-        {CANVAS.map((b) => (
-          <section key={b.area} className={`acc-block acc-${b.tone}`} style={{ gridArea: b.area }}>
-            <h3>{b.title}<span>{b.original}</span></h3>
-            <ul>{b.items.map((i) => <li key={i}>{i}</li>)}</ul>
-          </section>
-        ))}
+      <div className="acc-sheet">
+        <header className="acc-head">
+          <p className="acc-brand">arc<sup>42</sup></p>
+          <h3 className="acc-title">Architecture Communication Canvas</h3>
+          <dl className="acc-meta">
+            {META.map((m) => <div key={m.label}><dt>{m.label}</dt><dd>{m.value}</dd></div>)}
+          </dl>
+        </header>
+        <div className="acc">
+          {CANVAS.map((b) => {
+            const Icon = ICON[b.area]
+            return (
+              <section key={b.area} className={`acc-block acc-${b.tone}`} style={{ gridArea: b.area }}>
+                <div className="acc-block-head">
+                  <h4>{b.title}<span>{b.original}</span></h4>
+                  <Icon size={22} strokeWidth={2.2} aria-hidden="true" />
+                </div>
+                <ul>{b.items.map((i) => <li key={i}>{i}</li>)}</ul>
+              </section>
+            )
+          })}
+        </div>
+        <footer className="acc-foot">
+          <p className="acc-legend">
+            {(Object.keys(TONE_LABEL) as Tone[]).map((t) => <span key={t} className={`acc-key acc-${t}`}>{TONE_LABEL[t]}</span>)}
+          </p>
+          <p className="acc-credit">Software Architecture Canvas, © 2023 Gernot Starke, Patrick Roos e arc42 Contributors, CC BY-SA 4.0 · canvas.arc42.org</p>
+        </footer>
       </div>
-      <p className="acc-legend">
-        {(Object.keys(TONE_LABEL) as Tone[]).map((t) => <span key={t} className={`acc-key acc-${t}`}>{TONE_LABEL[t]}</span>)}
-      </p>
-      <p className="acc-credit">Modelo: Architecture Communication Canvas (canvas.arc42.org), licença CC BY-SA 4.0.</p>
 
       <h2 className="doc-h2" data-anchor="prints">Prints e links</h2>
       <p>Os quatro prints pedidos na entrega saem destes endereços, todos na nuvem.</p>

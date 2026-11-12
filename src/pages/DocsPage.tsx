@@ -117,7 +117,7 @@ export function DocsPage() {
           )}
         </nav>
         <div ref={contentRef} onScroll={onScroll} className="doc-scroll">
-          <div className="doc-layout">
+          <div className={isArtifacts ? 'doc-layout is-wide' : 'doc-layout'}>
             <article className="doc">
               {status === 'loading' && <p className="doc-status"><Loader2 size={14} className="spin" />Carregando a documentação…</p>}
               {status === 'error' && <p className="doc-status error-text">Não foi possível carregar a documentação agora. Tente de novo em instantes.</p>}
