@@ -1,6 +1,6 @@
 import { ArrowUpDown, ArrowUpRight, BadgeCheck, Briefcase, ChevronRight, CircleHelp, Link, List, Maximize2, Shapes, Users, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Arc42Section } from './arc42'
 import { DiagramZoom, mermaidMarkup } from './Mermaid'
 
@@ -116,6 +116,83 @@ const LINKS = [
   ...['mfe', 'bff', 'pmining', 'ipdd', 'fn-adwin'].map((r) => ({ label: `Repositório driftor-asc-${r}`, href: `https://github.com/aland3r/driftor-asc-${r}` })),
 ]
 
+const SHEET_W = 1200
+
+function CanvasSheet() {
+  return (
+      <div className="acc-sheet">
+        <header className="acc-head">
+          <p className="acc-brand">arc<sup>42</sup></p>
+          <h3 className="acc-title">Architecture Communication Canvas</h3>
+          <dl className="acc-meta">
+            {META.map((m) => <div key={m.label}><dt>{m.label}</dt><dd>{m.value}</dd></div>)}
+          </dl>
+        </header>
+        <div className="acc">
+          {CANVAS.map((b) => {
+            const Icon = ICON[b.area]
+            return (
+              <section key={b.area} className={`acc-block acc-${b.tone}`} style={{ gridArea: b.area }}>
+                <div className="acc-block-head">
+                  <h4>{b.title}<span>{b.original}</span></h4>
+                  <Icon size={22} strokeWidth={2.2} aria-hidden="true" />
+                </div>
+                <ul>{b.items.map((i) => <li key={i}>{i}</li>)}</ul>
+              </section>
+            )
+          })}
+        </div>
+        <footer className="acc-foot">
+          <p className="acc-legend">
+            {(Object.keys(TONE_LABEL) as Tone[]).map((t) => <span key={t} className={`acc-key acc-${t}`}>{TONE_LABEL[t]}</span>)}
+          </p>
+          <p className="acc-credit">Software Architecture Canvas, © 2023 Gernot Starke, Patrick Roos e arc42 Contributors, CC BY-SA 4.0 · canvas.arc42.org</p>
+        </footer>
+      </div>
+  )
+}
+
+/**
+ * O canvas é desenhado uma vez fora da tela, na largura de uma folha, e vira um SVG
+ * (foreignObject): na página aparece reduzido e no clique abre na janela de zoom dos diagramas.
+ */
+function CanvasPreview() {
+  const hostRef = useRef<HTMLDivElement>(null)
+  const [markup, setMarkup] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    let alive = true
+    document.fonts.ready.then(() => {
+      const sheet = hostRef.current?.firstElementChild as HTMLElement | null
+      if (!alive || !sheet) return
+      const h = Math.ceil(sheet.offsetHeight)
+      setMarkup(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SHEET_W} ${h}" width="100%" role="img" aria-label="Architecture Communication Canvas do Driftor ASC"><foreignObject x="0" y="0" width="${SHEET_W}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml">${sheet.outerHTML}</div></foreignObject></svg>`)
+    })
+    return () => { alive = false }
+  }, [])
+
+  return (
+    <>
+      <div ref={hostRef} className="acc-measure" aria-hidden="true"><CanvasSheet /></div>
+      {markup && (
+        <figure className="diagram acc-preview">
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Ampliar o canvas"
+            className="diagram-box"
+            onClick={() => setOpen(true)}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setOpen(true)}
+            dangerouslySetInnerHTML={{ __html: markup }}
+          />
+          <figcaption><Maximize2 size={12} aria-hidden="true" />Clique no canvas para ampliar</figcaption>
+        </figure>
+      )}
+      {open && markup && <DiagramZoom markup={markup} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
 const TONE_LABEL: Record<Tone, string> = { req: 'Requisitos: o que o sistema faz', sol: 'Solução: como funciona', risk: 'Problemas e riscos conhecidos' }
 
 export function ArtifactsPanel({ sections, onOpen }: { sections: Arc42Section[]; onOpen: (section: string, sub: string) => void }) {
@@ -157,35 +234,7 @@ export function ArtifactsPanel({ sections, onOpen }: { sections: Arc42Section[];
         Architecture Communication Canvas do Driftor ASC: a arquitetura inteira em uma página, no modelo do{' '}
         <a href="https://canvas.arc42.org/architecture-communication-canvas" target="_blank" rel="noreferrer">arc42 Canvas</a>.
       </p>
-      <div className="acc-sheet">
-        <header className="acc-head">
-          <p className="acc-brand">arc<sup>42</sup></p>
-          <h3 className="acc-title">Architecture Communication Canvas</h3>
-          <dl className="acc-meta">
-            {META.map((m) => <div key={m.label}><dt>{m.label}</dt><dd>{m.value}</dd></div>)}
-          </dl>
-        </header>
-        <div className="acc">
-          {CANVAS.map((b) => {
-            const Icon = ICON[b.area]
-            return (
-              <section key={b.area} className={`acc-block acc-${b.tone}`} style={{ gridArea: b.area }}>
-                <div className="acc-block-head">
-                  <h4>{b.title}<span>{b.original}</span></h4>
-                  <Icon size={22} strokeWidth={2.2} aria-hidden="true" />
-                </div>
-                <ul>{b.items.map((i) => <li key={i}>{i}</li>)}</ul>
-              </section>
-            )
-          })}
-        </div>
-        <footer className="acc-foot">
-          <p className="acc-legend">
-            {(Object.keys(TONE_LABEL) as Tone[]).map((t) => <span key={t} className={`acc-key acc-${t}`}>{TONE_LABEL[t]}</span>)}
-          </p>
-          <p className="acc-credit">Software Architecture Canvas, © 2023 Gernot Starke, Patrick Roos e arc42 Contributors, CC BY-SA 4.0 · canvas.arc42.org</p>
-        </footer>
-      </div>
+      <CanvasPreview />
 
       <h2 className="doc-h2" data-anchor="prints">Prints e links</h2>
       <p>Os quatro prints pedidos na entrega saem destes endereços, todos na nuvem.</p>

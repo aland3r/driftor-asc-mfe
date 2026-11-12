@@ -48,7 +48,7 @@
 .zoom-bar span { margin-right: auto; padding-left: 4px; font-size: var(--fs-xs); color: var(--text-muted); }
 .zoom-scroll { flex: 1; overflow: auto; padding: 0 16px 16px; }
 .zoom-canvas { margin: 0 auto; padding: 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
-.zoom-canvas svg { width: 100% !important; height: 100% !important; max-width: none !important; }
+.zoom-canvas > svg { width: 100% !important; height: 100% !important; max-width: none !important; }
 /* Artefatos obrigatórios: atalhos do C4, canvas e links */
 .doc-nav-extra { margin-top: 8px; border-top: 1px solid var(--line) !important; padding-top: 12px !important; }
 .c4-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 18px 0; }
@@ -57,7 +57,9 @@
 .c4-title { font-size: var(--fs-lg); font-weight: 600; color: var(--text); }
 .c4-where { display: flex; align-items: center; gap: 4px; font-size: var(--fs-sm); color: var(--accent-text); }
 /* Canvas no modelo do arc42: folha clara com cabeçalho, ícone por bloco e cor por tipo (requisito, solução, risco). */
-.acc-sheet { margin: 18px 0 10px; padding: 20px 20px 14px; border-radius: 10px; background: #e8edf0; color: #1d3446; }
+.acc-measure { position: fixed; left: -10000px; top: 0; width: 1200px; visibility: hidden; pointer-events: none; }
+.acc-preview .diagram-box > svg { max-width: 640px; height: auto; }
+.acc-sheet { margin: 0; padding: 20px 20px 14px; border-radius: 10px; background: #e8edf0; color: #1d3446; }
 .acc-head { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; align-items: center; margin-bottom: 16px; }
 .acc-brand { margin: 0 !important; font-family: Georgia, serif; font-size: 30px; line-height: 1; color: #1d3446; }
 .acc-brand sup { margin-left: 2px; padding: 1px 3px; border: 1.5px solid #1d3446; border-radius: 50%; font-family: var(--font); font-size: 10px; font-weight: 600; vertical-align: 14px; }
