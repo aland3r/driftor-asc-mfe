@@ -1,5 +1,8 @@
-import { ArrowUpDown, ArrowUpRight, BadgeCheck, Briefcase, ChevronRight, CircleHelp, Link, List, Shapes, Users, Wrench } from 'lucide-react'
+import { ArrowUpDown, ArrowUpRight, BadgeCheck, Briefcase, ChevronRight, CircleHelp, Link, List, Maximize2, Shapes, Users, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import type { Arc42Section } from './arc42'
+import { DiagramZoom, mermaidMarkup } from './Mermaid'
 
 /*
   Artefatos obrigatórios da entrega: atalhos para o C4 dentro do arc42,
@@ -11,6 +14,14 @@ export const ARTIFACT_SUBS = [
   { id: 'canvas', title: 'Canvas' },
   { id: 'prints', title: 'Prints e links' },
 ]
+
+/** Código Mermaid do primeiro diagrama da subseção (ex.: 5.2) dentro da seção. */
+function diagramOf(sections: Arc42Section[], section: string, sub: string) {
+  const body = sections.find((s) => s.id === section)?.body ?? ''
+  const at = body.search(new RegExp(`^###\\s+${sub.replace('.', '\\.')}\\s`, 'm'))
+  if (at < 0) return null
+  return /```mermaid\n([\s\S]*?)```/.exec(body.slice(at))?.[1] ?? null
+}
 
 const C4 = [
   { level: 'Nível 1', title: 'Contexto', where: '3.1 Contexto de negócio', section: '3', sub: '3.1' },
@@ -107,20 +118,39 @@ const LINKS = [
 
 const TONE_LABEL: Record<Tone, string> = { req: 'Requisitos: o que o sistema faz', sol: 'Solução: como funciona', risk: 'Problemas e riscos conhecidos' }
 
-export function ArtifactsPanel({ onOpen }: { onOpen: (section: string, sub: string) => void }) {
+export function ArtifactsPanel({ sections, onOpen }: { sections: Arc42Section[]; onOpen: (section: string, sub: string) => void }) {
+  // Os três níveis são desenhados de antemão, um por vez, para o zoom abrir na hora do clique.
+  const [markups, setMarkups] = useState<Record<string, string>>({})
+  const [zoom, setZoom] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      for (const c of C4) {
+        const code = diagramOf(sections, c.section, c.sub)
+        if (!code) continue
+        try {
+          const markup = await mermaidMarkup(code, `c4${c.sub.replace('.', '')}`)
+          if (alive) setMarkups((m) => ({ ...m, [c.title]: markup }))
+        } catch { /* sem diagrama, o cartão leva à seção */ }
+      }
+    })()
+    return () => { alive = false }
+  }, [sections])
+
   return (
     <>
       <h2 className="doc-h2" data-anchor="c4">C4 Model</h2>
-      <p>Os três níveis do C4 estão nas seções do arc42, em Mermaid. Cada cartão abre o diagrama.</p>
+      <p>Os três níveis do C4 estão nas seções do arc42, em Mermaid. Cada cartão abre o diagrama ampliado.</p>
       <div className="c4-cards">
         {C4.map((c) => (
-          <button key={c.title} type="button" className="c4-card" onClick={() => onOpen(c.section, c.sub)}>
+          <button key={c.title} type="button" className="c4-card" onClick={() => (markups[c.title] ? setZoom(c.title) : onOpen(c.section, c.sub))}>
             <span className="label">{c.level}</span>
             <span className="c4-title">{c.title}</span>
-            <span className="c4-where">{c.where}<ChevronRight size={14} aria-hidden="true" /></span>
+            <span className="c4-where">{c.where}{markups[c.title] ? <Maximize2 size={13} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}</span>
           </button>
         ))}
       </div>
+      {zoom && markups[zoom] && <DiagramZoom markup={markups[zoom]} onClose={() => setZoom(null)} />}
 
       <h2 className="doc-h2" data-anchor="canvas">Canvas</h2>
       <p>

@@ -153,7 +153,7 @@ export function DocsPage() {
                 <>
                   <p className="doc-kicker mono">Anexo</p>
                   <h1>Artefatos obrigatórios</h1>
-                  <ArtifactsPanel onOpen={(id, sub) => go(id, sub)} />
+                  <ArtifactsPanel sections={sections} onOpen={(id, sub) => go(id, sub)} />
                   {sections.length > 0 && (
                     <nav className="doc-pager" aria-label="Navegação entre seções">
                       <Pager section={sections[sections.length - 1]} dir="prev" onClick={() => go(sections[sections.length - 1].id)} />

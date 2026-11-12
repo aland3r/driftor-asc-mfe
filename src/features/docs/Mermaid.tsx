@@ -101,6 +101,32 @@ function unkinkRelationTips(svg: SVGSVGElement) {
   })
 }
 
+/** Desenha o diagrama fora da tela e devolve o SVG já tratado, para abrir direto no zoom. */
+export async function mermaidMarkup(code: string, key: string): Promise<string> {
+  widenScreen(code)
+  try {
+    const m = await getMermaid()
+    const { svg } = await m.render(`mmz-${key}`, code)
+    const host = document.createElement('div')
+    host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1200px;visibility:hidden'
+    host.innerHTML = lightenC4Lines(svg)
+    document.body.appendChild(host)
+    try {
+      const el = host.querySelector('svg')
+      if (!el) throw new Error('Diagrama vazio')
+      straightenInheritanceStems(el)
+      unkinkRelationTips(el)
+      cropSvg(el)
+      return el.outerHTML
+    } finally { host.remove() }
+  } finally { restoreScreen() }
+}
+
+/** Abre um SVG já pronto na mesma janela de zoom dos diagramas do arc42. */
+export function DiagramZoom({ markup, onClose }: { markup: string; onClose: () => void }) {
+  return createPortal(<ZoomOverlay markup={markup} onClose={onClose} />, document.body)
+}
+
 export function Mermaid({ code }: { code: string }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '')
   const ref = useRef<HTMLDivElement>(null)
